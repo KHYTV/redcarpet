@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """기사 작성기.
 
 수집/필터링된 아이템을 Claude(Haiku)로 한국어 실용 기사로 재작성한다.
@@ -11,12 +13,16 @@ from datetime import datetime, timezone
 import anthropic
 
 import config
+from processors.ethics_guidelines import CONSTITUTION_TEXT
 
 logger = logging.getLogger(__name__)
 
 PROMPT_TEMPLATE = """다음 반려동물 관련 콘텐츠를 한국 반려동물 오너를 위한 실용적인 한국어 기사로 작성해줘.
 원문 인용 절대 금지, 완전 재작성.
 전문용어는 쉬운 언어로 변환.
+
+""" + CONSTITUTION_TEXT + """
+
 
 출력 형식 (반드시 아래 머리말을 그대로 사용):
 [제목]

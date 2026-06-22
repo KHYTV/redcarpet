@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """뉴스레터 이메일 발송기.
 
 A등급 기사만 모아 Gmail SMTP(TLS)로 HTML 뉴스레터를 보낸다.

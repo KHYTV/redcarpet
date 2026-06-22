@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """수집 아이템 필터링.
 
 1) 제목 Levenshtein 유사도 기반 중복 제거

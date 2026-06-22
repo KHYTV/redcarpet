@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """자막 합성기.
 
 Kling 생성 영상을 다운로드하고 FFmpeg drawtext로 자막을 오버레이한 뒤,

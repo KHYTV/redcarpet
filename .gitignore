@@ -7,3 +7,5 @@ output/temp/*
 output/results/*
 logs/*.log
 service_account.json
+output/_qr_datauri.txt
+output/qr.png

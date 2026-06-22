@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """숏폼 제작 파이프라인.
 
 A등급 기사를 받아 대본 생성 → Kling 영상 생성 → 플랫폼별 자막 합성 →

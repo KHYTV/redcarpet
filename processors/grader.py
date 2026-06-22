@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """등급 판정.
 
 score 기준으로 A/B/C 등급과 후속 action을 결정한다.
@@ -17,10 +19,13 @@ def grade_article(article: dict) -> dict:
     result = dict(article)
     score = result.get("score", 0) or 0
 
-    # 팩트체크 탈락 시 강제 C
+    # 팩트체크 또는 윤리검증 탈락 시 강제 C (두 거부권)
     if result.get("fact_check_passed") is False:
         grade, action = "C", "discard"
         result["grade_reason"] = "fact_check_failed"
+    elif result.get("ethics_passed") is False:
+        grade, action = "C", "discard"
+        result["grade_reason"] = "ethics_violation"
     elif score >= config.GRADE_A_MIN:
         grade, action = "A", "publish"
     elif score >= config.GRADE_B_MIN:

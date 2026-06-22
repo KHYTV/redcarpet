@@ -1,0 +1,28 @@
+PROPRIETARY SOFTWARE LICENSE / 독점 소프트웨어 라이선스
+
+Copyright (c) 2026 RedCarpet Project. All rights reserved.
+저작권 (c) 2026 RedCarpet Project. 모든 권리 보유.
+
+본 소프트웨어 및 관련 문서 파일(이하 "소프트웨어")의 모든 권리는 저작권자에게
+있습니다. 본 소프트웨어는 영업비밀 및 저작권법에 의해 보호됩니다.
+
+저작권자의 사전 서면 동의 없이는 다음을 금합니다:
+  - 복제, 배포, 전시, 공중송신
+  - 수정, 2차적 저작물 작성
+  - 역설계, 디컴파일, 소스코드 추출
+  - 상업적·비상업적 이용
+
+This software and associated documentation files (the "Software") are the
+proprietary and confidential property of the copyright holder. The Software is
+protected by copyright law and trade secret law.
+
+No part of the Software may be reproduced, distributed, modified, reverse-
+engineered, or used in any form without the prior written permission of the
+copyright holder.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+
+---
+주의: 본 라이선스는 독점(proprietary) 보호를 기본값으로 작성되었습니다.
+오픈소스로 공개하려는 경우 MIT/Apache-2.0 등으로 교체하십시오.
+저작권자 표기(RedCarpet Project)는 실제 법적 권리자명으로 변경하십시오.

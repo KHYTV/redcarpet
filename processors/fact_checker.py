@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """하이브리드 팩트체크.
 
 [1단계] Claude로 핵심 클레임 추출 + confidence/category 부여

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """숏폼 대본 생성기.
 
 A등급 기사를 Claude로 숏폼(세로형) 대본 JSON으로 변환한다.

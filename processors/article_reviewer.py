@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """기사 검수/교정 + 점수 산출.
 
 Claude로 4개 항목(각 25점)을 평가하고 교정본(revised_article)을 받아

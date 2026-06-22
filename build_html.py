@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """웹 게시 샘플 HTML 생성.
 
 _web_articles.json을 읽어 날짜별 섹션의 펫 매거진 페이지(output/web_sample.html)를 만든다.

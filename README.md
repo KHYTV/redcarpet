@@ -111,6 +111,26 @@ crontab -e   # 위 줄 추가
 
 - **collectors** — Reddit 수집(old.reddit.com HTML 스크래핑, 공식 JSON API가 IP 차단되어 대체)과 feedparser 기반 RSS 수집, Levenshtein 중복 제거 필터
   - Reddit: 점수 통과 셀프 게시물만 본문 fetch(요청 절약), 요청 간 2.5초 지연. `REDDIT_USER_AGENT`로 UA 변경 가능. ToS상 비공식 경로이므로 발행 시 콘텐츠 라이선스 검토 권장.
-- **processors** — Claude Haiku로 기사 재작성, PubMed/Google 하이브리드 팩트체크, 100점 검수, A/B/C 등급
+- **processors** — Claude Haiku로 기사 재작성, PubMed/Google 하이브리드 팩트체크, 100점 검수, **동물보도 윤리 준칙 검증**, A/B/C 등급
 - **shortform** — Claude 대본 생성, Kling AI(JWT 인증) 세로형 영상, FFmpeg 자막 합성, 4개 플랫폼 출력
 - **publishers** — Google Sheets append, Gmail SMTP 뉴스레터
+
+## 🐾 동물보도 윤리 준칙 (차별점)
+
+RedCarpet은 동물을 상품이 아닌 감응적 존재로 존중하는 **동물권 지향 언론보도**를 지향한다.
+[동물보도 윤리 준칙 7원칙](docs/동물보도윤리준칙.md)을 코드화하여 파이프라인에 강제한다:
+
+| 단계 | 메커니즘 |
+|------|---------|
+| 생성 | `ethics_guidelines.py`의 준칙을 작성 프롬프트에 '헌법'으로 주입 |
+| 검증 | `ethics_reviewer.py`가 7원칙 0~3점 채점 + 위반 추출 |
+| 발행 | 심각(high) 위반 시 점수 무관 **발행 거부** (`grader.py` ethics veto) |
+| 감사 | 기사별 `ethics_score`·`ethics_violations` 기록 |
+
+> 팩트체크와 윤리검증, **두 개의 독립적 거부권**이 발행을 통제한다. 단순 표방이 아니라 측정·강제·감사 가능한 구조.
+
+## 라이선스 / 지적재산권
+
+- 독점 라이선스 — [LICENSE](LICENSE) 참조 (무단 복제·배포·역설계 금지)
+- 소스코드·윤리 준칙 문서는 저작권법으로 보호됨. 프롬프트·점수 로직은 영업비밀
+- © 2026 RedCarpet Project. All rights reserved.

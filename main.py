@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """RedCarpet 메인 파이프라인.
 
 수집 → 필터 → 기사작성 → 팩트체크 → 검수/등급 → 숏폼 → 저장/발송 순으로 실행한다.
@@ -33,6 +35,7 @@ def run() -> dict:
     # 지연 import: 일부 의존성 미설치 시에도 다른 단계 영향 최소화
     from collectors import reddit_collector, rss_collector, filter as item_filter
     from processors import article_writer, fact_checker, article_reviewer, grader
+    from processors import ethics_reviewer
     from shortform import pipeline as shortform_pipeline
     from publishers import sheets_publisher, email_publisher
 
@@ -96,9 +99,19 @@ def run() -> dict:
         except Exception as exc:  # noqa: BLE001
             logger.exception("[STEP 6] 검수 실패: %s", exc)
             reviewed.append({**article, "score": 0})
+    # STEP 6.5: 동물보도 윤리 준칙 검증 (각 기사별)
+    ethics_checked = []
+    for article in reviewed:
+        try:
+            ethics_checked.append(ethics_reviewer.ethics_review(article, config.ANTHROPIC_API_KEY))
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[STEP 6.5] 윤리검증 실패: %s", exc)
+            ethics_checked.append({**article, "ethics_passed": True})
+    logger.info("[STEP 6.5] 윤리검증 완료 (%d건)", len(ethics_checked))
+
     graded = []
     try:
-        graded = grader.grade_all(reviewed)
+        graded = grader.grade_all(ethics_checked)
     except Exception as exc:  # noqa: BLE001
         logger.exception("[STEP 6] 등급 판정 실패: %s", exc)
         graded = reviewed

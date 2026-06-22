@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """RSS 수집기.
 
 feedparser로 config.OVERSEAS_RSS(해외)와 config.KOREAN_NEWS_RSS(국내 구글뉴스)를

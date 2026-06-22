@@ -1,3 +1,5 @@
+# Copyright (c) 2026 RedCarpet Project. All rights reserved.
+# Proprietary and confidential. See LICENSE.
 """RedCarpet 전역 설정.
 
 .env 파일에서 환경변수를 로드하고, 파이프라인 전반에서 사용하는 상수를 정의한다.
