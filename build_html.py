@@ -63,11 +63,14 @@ def card(a, i, featured=False):
     img_html = (f'<img src="{uri}" alt="{html.escape(a.get("title",""))}">' if uri
                 else f'<div class="noimg" style="background:{color}"></div>')
     e_color, e_text = ethics_badge(a.get("ethics_score"))
+    n_ang = len(a.get("deep_angles", []))
+    deep_meta = f'<span>심층 {n_ang}각도 통합</span><span>·</span>' if n_ang else ''
     return f"""
     <article class="{cls}">
       <div class="hero">
         {img_html}
         <span class="badge" style="background:{color}">{label}</span>
+        <span class="deepmark">심층</span>
         <span class="ethics" style="background:{e_color}"><span class="dot">✓</span> {e_text}</span>
         <span class="cap">사진: {html.escape(a.get('photo_query',''))}</span>
       </div>
@@ -75,7 +78,7 @@ def card(a, i, featured=False):
         <h2>{html.escape(a.get('title',''))}</h2>
         <p class="lead">{html.escape(a.get('lead',''))}</p>
         {body if featured else ''}
-        <div class="meta"><span>출처 {src}</span><span>·</span><span>{a.get('pub_date','')}</span></div>
+        <div class="meta">{deep_meta}<span>출처 {src}</span><span>·</span><span>{a.get('pub_date','')}</span></div>
       </div>
     </article>"""
 
@@ -139,6 +142,7 @@ HTML = f"""<!DOCTYPE html>
   .card:not(.featured) .hero {{ aspect-ratio:16/9; }}
   .hero img {{ width:100%; height:100%; object-fit:cover; display:block; }}
   .badge {{ position:absolute; top:12px; left:12px; color:#fff; font-size:12px; padding:4px 10px; border-radius:6px; }}
+  .deepmark {{ position:absolute; top:12px; left:74px; background:#1f1f1f; color:#fff; font-size:12px; padding:4px 9px; border-radius:6px; font-weight:500; }}
   .ethics {{ position:absolute; top:12px; right:12px; color:#fff; font-size:12px; padding:4px 10px; border-radius:6px; font-weight:500; }}
   .ethics .dot {{ font-weight:700; }}
   .cap {{ position:absolute; bottom:8px; right:10px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; padding:2px 7px; border-radius:4px; }}
@@ -158,8 +162,8 @@ HTML = f"""<!DOCTYPE html>
 <body>
 <header class="site">
   <h1>🐾 RedCar Pet</h1>
-  <div class="tag">동물권 지향 AI 펫 저널리즘 · 게시 샘플</div>
-  <div class="ethics-line">✓ 전 기사 동물보도 윤리 준칙 검증 · 게재 평균 {avg}점</div>
+  <div class="tag">동물권 지향 AI 심층 저널리즘 · 게시 샘플</div>
+  <div class="ethics-line">✓ 2단계 심층 보도 · 동물보도 윤리 준칙 검증 · 게재 평균 {avg}점</div>
 </header>
 <div class="wrap">
 {''.join(sections)}
