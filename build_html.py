@@ -56,8 +56,6 @@ def card(a, i, featured=False):
     color = CAT_COLOR.get(cat, "#5F5E5A")
     label = CAT_LABEL.get(cat, "소식")
     src = "레딧" if a.get("source_type") == "reddit" else "국내뉴스"
-    paras = "".join(f"<p>{html.escape(p)}</p>" for p in a.get("paragraphs", []))
-    body = paras if featured else f"<p>{html.escape(a.get('lead',''))}</p>"
     cls = "card featured" if featured else "card"
     uri = img_data_uri(cat, i)
     img_html = (f'<img src="{uri}" alt="{html.escape(a.get("title",""))}">' if uri
@@ -66,7 +64,7 @@ def card(a, i, featured=False):
     n_ang = len(a.get("deep_angles", []))
     deep_meta = f'<span>심층 {n_ang}각도 통합</span><span>·</span>' if n_ang else ''
     return f"""
-    <article class="{cls}">
+    <article class="{cls}" onclick="openArt({i})" tabindex="0" role="button" aria-label="전문 보기: {html.escape(a.get('title',''))}">
       <div class="hero">
         {img_html}
         <span class="badge" style="background:{color}">{label}</span>
@@ -77,8 +75,8 @@ def card(a, i, featured=False):
       <div class="body">
         <h2>{html.escape(a.get('title',''))}</h2>
         <p class="lead">{html.escape(a.get('lead',''))}</p>
-        {body if featured else ''}
         <div class="meta">{deep_meta}<span>출처 {src}</span><span>·</span><span>{a.get('pub_date','')}</span></div>
+        <span class="readmore">기사 전문 보기 →</span>
       </div>
     </article>"""
 
@@ -96,13 +94,31 @@ rejected = [a for a in ART if not a.get("ethics_passed", True)]
 
 dates = sorted({a["pub_date"] for a in published}, reverse=True)
 sections = []
+flat = []  # 렌더 순서대로의 기사 (모달 인덱스와 일치)
 i = 0
 for d in dates:
     items = sorted([a for a in published if a["pub_date"] == d],
                    key=lambda x: (x.get("ethics_score") or 0, x.get("score", 0)), reverse=True)
     mm_dd = "·".join(d.split("-")[1:])
     sections.append(section(f"{mm_dd} 발행", items, i))
+    flat.extend(items)
     i += len(items)
+
+# 모달용 기사 데이터 (전문 포함)
+arts_js = json.dumps([
+    {
+        "title": a.get("title", ""),
+        "lead": a.get("lead", ""),
+        "paragraphs": a.get("paragraphs", []),
+        "label": CAT_LABEL.get(a.get("category", "general"), "소식"),
+        "color": CAT_COLOR.get(a.get("category", "general"), "#5F5E5A"),
+        "date": a.get("pub_date", ""),
+        "ethics": a.get("ethics_score"),
+        "src": "레딧" if a.get("source_type") == "reddit" else "국내뉴스",
+        "angles": a.get("deep_angles", []),
+    }
+    for a in flat
+], ensure_ascii=False)
 
 # 준칙 미게재 블록
 rejected_html = ""
@@ -136,8 +152,25 @@ HTML = f"""<!DOCTYPE html>
   .wrap {{ max-width:1080px; margin:0 auto; padding:24px 20px 60px; }}
   h3.sec {{ font-size:15px; color:#c0392b; border-left:4px solid #c0392b; padding-left:10px; margin:34px 0 16px; }}
   .grid {{ display:grid; grid-template-columns:repeat(2,1fr); gap:22px; }}
-  .card {{ background:#fff; border:1px solid #eee; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; }}
+  .card {{ background:#fff; border:1px solid #eee; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; transition:box-shadow .15s, transform .15s; }}
+  .card:hover {{ box-shadow:0 6px 20px rgba(0,0,0,.10); transform:translateY(-2px); }}
+  .card:focus {{ outline:2px solid #c0392b; outline-offset:2px; }}
   .card.featured {{ grid-column:1 / -1; }}
+  .readmore {{ display:inline-block; margin-top:10px; color:#c0392b; font-size:14px; font-weight:500; }}
+  .overlay {{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:100; }}
+  .overlay.open {{ display:flex; }}
+  .modal {{ background:#fff; max-width:720px; width:100%; border-radius:14px; overflow:hidden; }}
+  .modal-band {{ height:8px; }}
+  .modal-inner {{ padding:26px 30px 34px; }}
+  .modal .tags {{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; }}
+  .modal .tag {{ padding:3px 10px; border-radius:6px; color:#fff; }}
+  .modal h2 {{ font-size:26px; line-height:1.35; margin:0 0 12px; color:#1a1a1a; }}
+  .modal .mlead {{ color:#c0392b; font-size:16px; font-weight:500; margin:0 0 18px; line-height:1.6; }}
+  .modal .mbody p {{ font-size:16px; line-height:1.8; color:#333; margin:0 0 14px; }}
+  .modal .angles {{ margin-top:20px; padding:14px 16px; background:#f6f5f1; border-radius:10px; font-size:13px; color:#555; }}
+  .modal .angles b {{ color:#333; font-weight:500; }}
+  .modal-close {{ float:right; cursor:pointer; font-size:22px; color:#999; line-height:1; border:none; background:none; }}
+  @media (max-width:720px) {{ .modal-inner {{ padding:20px; }} .modal h2 {{ font-size:22px; }} }}
   .hero {{ position:relative; background:#ece9e2; aspect-ratio:16/7; overflow:hidden; }}
   .card:not(.featured) .hero {{ aspect-ratio:16/9; }}
   .hero img {{ width:100%; height:100%; object-fit:cover; display:block; }}
@@ -169,6 +202,43 @@ HTML = f"""<!DOCTYPE html>
 {''.join(sections)}
 {rejected_html}
 </div>
+
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeArt()">
+  <div class="modal" role="dialog" aria-modal="true">
+    <div class="modal-band" id="m-band"></div>
+    <div class="modal-inner">
+      <button class="modal-close" onclick="closeArt()" aria-label="닫기">✕</button>
+      <div class="tags" id="m-tags"></div>
+      <h2 id="m-title"></h2>
+      <p class="mlead" id="m-lead"></p>
+      <div class="mbody" id="m-body"></div>
+      <div class="angles" id="m-angles"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ARTS = {arts_js};
+const ov = document.getElementById('overlay');
+function esc(s){{return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}}
+function openArt(i){{
+  const a = ARTS[i]; if(!a) return;
+  document.getElementById('m-band').style.background = a.color;
+  document.getElementById('m-title').textContent = a.title;
+  document.getElementById('m-lead').textContent = a.lead;
+  document.getElementById('m-body').innerHTML = a.paragraphs.map(p=>'<p>'+esc(p)+'</p>').join('');
+  document.getElementById('m-tags').innerHTML =
+    '<span class="tag" style="background:'+a.color+'">'+esc(a.label)+'</span>'+
+    '<span class="tag" style="background:#1f1f1f">심층</span>'+
+    '<span class="tag" style="background:#0F6E56">✓ 윤리 준칙 '+(a.ethics??'-')+'</span>'+
+    '<span style="color:#999;align-self:center">출처 '+esc(a.src)+' · '+esc(a.date)+'</span>';
+  document.getElementById('m-angles').innerHTML = a.angles && a.angles.length
+    ? '<b>심층 확장 각도 '+a.angles.length+'개</b><br>'+a.angles.map(x=>'· '+esc(x)).join('<br>') : '';
+  ov.classList.add('open'); document.body.style.overflow='hidden';
+}}
+function closeArt(){{ ov.classList.remove('open'); document.body.style.overflow=''; }}
+document.addEventListener('keydown', e=>{{ if(e.key==='Escape') closeArt(); }});
+</script>
 </body></html>"""
 
 open("output/web_sample.html", "w", encoding="utf-8").write(HTML)
