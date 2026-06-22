@@ -1,0 +1,9 @@
+.env
+venv/
+__pycache__/
+*.pyc
+output/shortform/*
+output/temp/*
+output/results/*
+logs/*.log
+service_account.json
