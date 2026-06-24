@@ -59,9 +59,22 @@ def fetch_img(keyword, lock, w=900, h=500):
     return uri
 
 
-def body_images(cat, idx):
-    kws = BODY_KW.get(cat, ["pet", "dog", "cat"])
-    return [fetch_img(kws[k % len(kws)], idx * 10 + k + 1) for k in range(N_BODY_IMG)]
+def article_images(a, idx):
+    """단락별 매칭 키워드(image_keywords) 우선, 없으면 카테고리 기본 키워드."""
+    cat = a.get("category", "general")
+    iks = [ik for ik in (a.get("image_keywords") or []) if (ik.get("kw") if isinstance(ik, dict) else ik)]
+    default_kws = BODY_KW.get(cat, ["pet", "dog", "cat"])
+    out = []
+    for k in range(N_BODY_IMG):
+        kw = ""
+        if k < len(iks):
+            raw = iks[k].get("kw") if isinstance(iks[k], dict) else iks[k]
+            kw = (raw or "").strip().split()[0] if raw else ""  # loremflickr 안정성 위해 단일어
+        uri = fetch_img(kw, idx * 10 + k + 1) if kw else ""
+        if not uri:  # 실패/없으면 카테고리 기본으로 폴백
+            uri = fetch_img(default_kws[k % len(default_kws)], idx * 10 + k + 1)
+        out.append(uri)
+    return out
 
 
 def ethics_badge(score):
@@ -72,7 +85,7 @@ def ethics_badge(score):
 
 # 전체 기사에 이미지 부착 + 발행/보류 분리
 for i, a in enumerate(ART):
-    a["_imgs"] = body_images(a.get("category", "general"), i)
+    a["_imgs"] = article_images(a, i)
 
 published = [a for a in ART if a.get("ethics_passed", True)]
 rejected = [a for a in ART if not a.get("ethics_passed", True)]
@@ -106,13 +119,13 @@ for i, a in enumerate(published):
       <p class="plead">{html.escape(a.get('lead',''))}</p>
       <div class="pimg">{hero_html}</div>
       <div class="pactions">
-        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M7 10v11M2 13v6a1 1 0 001 1h3V10H3a1 1 0 00-1 1zm5 0 4.5-8a2 2 0 013.8 1.2L19 9h2.5a2 2 0 012 2.4l-1.5 7a2 2 0 01-2 1.6H7"/></svg>좋아요</span>
-        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M21 11.5a8.4 8.4 0 01-9 8.4L3 21l1.1-3.3A8.4 8.4 0 1121 11.5z"/></svg>댓글</span>
-        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v14"/></svg>공유</span>
+        <button class="act likebtn" onclick="event.stopPropagation();like({i},this)"><svg viewBox="0 0 24 24" class="ico"><path d="M7 10v11M2 13v6a1 1 0 001 1h3V10H3a1 1 0 00-1 1zm5 0 4.5-8a2 2 0 013.8 1.2L19 9h2.5a2 2 0 012 2.4l-1.5 7a2 2 0 01-2 1.6H7"/></svg>좋아요 <b class="lc" data-i="{i}">0</b></button>
+        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M21 11.5a8.4 8.4 0 01-9 8.4L3 21l1.1-3.3A8.4 8.4 0 1121 11.5z"/></svg>댓글 <b class="cc" data-i="{i}">0</b></span>
         <span class="readmore">전문 보기 →</span>
       </div>
     </article>""")
     arts_data.append({
+        "key": a.get("source_key", "") or ("t:" + a.get("title", "")),
         "title": a.get("title", ""), "lead": a.get("lead", ""),
         "paragraphs": a.get("paragraphs", []), "images": a["_imgs"],
         "label": label, "color": color, "emoji": emoji,
@@ -162,6 +175,19 @@ HTML = f"""<!DOCTYPE html>
   .act {{ display:inline-flex; align-items:center; gap:5px; }}
   .ico {{ width:18px; height:18px; fill:none; stroke:#65676b; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }}
   .readmore {{ margin-left:auto; color:#c0392b; font-weight:600; }}
+  .likebtn {{ background:none; border:none; cursor:pointer; font:inherit; color:#65676b; padding:0; }}
+  .likebtn:hover {{ color:#c0392b; }}
+  .likebtn:hover .ico {{ stroke:#c0392b; }}
+  .msns {{ margin-top:22px; border-top:1px solid #eceef0; padding-top:14px; }}
+  .mlikebtn {{ background:#f0f2f5; border:none; border-radius:18px; padding:8px 16px; font:inherit; font-weight:600; color:#c0392b; cursor:pointer; }}
+  .msns h4 {{ font-size:15px; margin:16px 0 10px; }}
+  .cmt {{ background:#f0f2f5; border-radius:12px; padding:8px 12px; margin-bottom:8px; }}
+  .cmt .cn {{ font-weight:600; font-size:13px; }}
+  .cmt .ct {{ font-size:14px; color:#1c1e21; margin-top:2px; }}
+  .cform {{ display:flex; flex-direction:column; gap:8px; margin-top:10px; }}
+  .cform input, .cform textarea {{ font:inherit; border:1px solid #dadde1; border-radius:8px; padding:8px 10px; width:100%; }}
+  .cform textarea {{ min-height:60px; resize:vertical; }}
+  .cform button {{ align-self:flex-end; background:#c0392b; color:#fff; border:none; border-radius:8px; padding:8px 18px; font:inherit; font-weight:600; cursor:pointer; }}
   .held {{ max-width:600px; margin:18px auto; padding:14px 18px; background:#fbeeee; border:1px solid #f0d0d0; border-radius:12px; }}
   .held-h {{ color:#A32D2D; font-weight:600; margin-bottom:8px; }}
   .held ul {{ margin:0; padding-left:18px; color:#5a3a3a; font-size:14px; }}
@@ -198,27 +224,74 @@ HTML = f"""<!DOCTYPE html>
       <p class="mlead" id="m-lead"></p>
       <div class="mbody" id="m-body"></div>
       <div class="angles" id="m-angles"></div>
+      <div class="msns">
+        <button class="mlikebtn" id="m-like">♥ 좋아요 <b id="m-lc">0</b></button>
+        <h4>댓글 <span id="m-cc">0</span></h4>
+        <div id="m-comments"></div>
+        <div class="cform">
+          <input id="m-name" placeholder="이름(선택)" maxlength="40">
+          <textarea id="m-text" placeholder="이 반려동물 소식에 댓글을 남겨보세요" maxlength="500"></textarea>
+          <button id="m-send">댓글 등록</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 <script>
 const ARTS = {arts_js};
+let ENG = {{}};      // {{key: {{likes, comments[]}}}}
+let curIdx = -1;
 const ov = document.getElementById('overlay');
 function esc(s){{return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}}
+function engOf(i){{ const k=ARTS[i].key; return ENG[k] || (ENG[k]={{likes:0,comments:[]}}); }}
+
+async function loadEng(){{
+  try{{ ENG = await (await fetch('/api/engagement')).json() || {{}}; }}catch(e){{ ENG={{}}; }}
+  ARTS.forEach((a,i)=>{{
+    const e=ENG[a.key]||{{likes:0,comments:[]}};
+    document.querySelectorAll('.lc[data-i="'+i+'"]').forEach(x=>x.textContent=e.likes||0);
+    document.querySelectorAll('.cc[data-i="'+i+'"]').forEach(x=>x.textContent=(e.comments||[]).length);
+  }});
+}}
+async function like(i, btn){{
+  try{{
+    const r = await (await fetch('/api/like',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{key:ARTS[i].key}})}})).json();
+    if(r.likes!=null){{ engOf(i).likes=r.likes;
+      document.querySelectorAll('.lc[data-i="'+i+'"]').forEach(x=>x.textContent=r.likes);
+      if(curIdx===i) document.getElementById('m-lc').textContent=r.likes;
+    }}
+  }}catch(e){{ alert('서버를 통해 접속해야 좋아요가 저장됩니다 (http://...:8000)'); }}
+}}
+function renderComments(i){{
+  const cs = engOf(i).comments||[];
+  document.getElementById('m-cc').textContent = cs.length;
+  document.getElementById('m-comments').innerHTML = cs.map(c=>
+    '<div class="cmt"><div class="cn">'+esc(c.name)+'</div><div class="ct">'+esc(c.text)+'</div></div>').join('')
+    || '<div style="color:#999;font-size:14px;">첫 댓글을 남겨보세요.</div>';
+}}
+async function sendComment(){{
+  const i=curIdx; if(i<0) return;
+  const name=document.getElementById('m-name').value, text=document.getElementById('m-text').value.trim();
+  if(!text) return;
+  try{{
+    const r = await (await fetch('/api/comment',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{key:ARTS[i].key,name:name,text:text}})}})).json();
+    if(r.comment){{ engOf(i).comments.push(r.comment); document.getElementById('m-text').value='';
+      renderComments(i);
+      document.querySelectorAll('.cc[data-i="'+i+'"]').forEach(x=>x.textContent=engOf(i).comments.length);
+    }}
+  }}catch(e){{ alert('서버를 통해 접속해야 댓글이 저장됩니다 (http://...:8000)'); }}
+}}
 function openArt(i){{
-  const a = ARTS[i]; if(!a) return;
+  const a = ARTS[i]; if(!a) return; curIdx=i;
   document.getElementById('m-band').style.background = a.color;
   document.getElementById('m-title').textContent = a.title;
   document.getElementById('m-lead').textContent = a.lead;
-  // 본문 단락 사이에 이미지 분산 삽입
   const P = a.paragraphs || [], IM = (a.images||[]).filter(Boolean);
-  let html = '';
-  const slots = [];
+  let html=''; const slots=[];
   for(let k=0;k<IM.length;k++) slots.push(Math.round((k+1)*P.length/(IM.length+1))-1);
   for(let p=0;p<P.length;p++){{
     html += '<p>'+esc(P[p])+'</p>';
-    const si = slots.indexOf(p);
-    if(si>=0 && IM[si]) html += '<img src="'+IM[si]+'" alt="">';
+    const si = slots.indexOf(p); if(si>=0 && IM[si]) html += '<img src="'+IM[si]+'" alt="">';
   }}
   document.getElementById('m-body').innerHTML = html;
   document.getElementById('m-tags').innerHTML =
@@ -228,10 +301,15 @@ function openArt(i){{
     '<span style="color:#999">'+esc(a.date+' · 출처 '+a.src)+'</span>';
   document.getElementById('m-angles').innerHTML = a.angles && a.angles.length
     ? '<b>심층 확장 각도 '+a.angles.length+'개</b><br>'+a.angles.map(x=>'· '+esc(x)).join('<br>') : '';
+  document.getElementById('m-lc').textContent = engOf(i).likes||0;
+  renderComments(i);
   ov.classList.add('open'); document.body.style.overflow='hidden';
 }}
-function closeArt(){{ ov.classList.remove('open'); document.body.style.overflow=''; }}
+function closeArt(){{ ov.classList.remove('open'); document.body.style.overflow=''; curIdx=-1; }}
+document.getElementById('m-like').onclick = ()=>{{ if(curIdx>=0) like(curIdx); }};
+document.getElementById('m-send').onclick = sendComment;
 document.addEventListener('keydown', e=>{{ if(e.key==='Escape') closeArt(); }});
+loadEng();
 </script>
 </body></html>"""
 

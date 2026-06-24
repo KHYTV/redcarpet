@@ -110,6 +110,39 @@ def _gather_context(angles: list, related_items: list) -> str:
     return "\n\n".join(blocks)
 
 
+IMG_KW_PROMPT = """기사 본문에 어울리는 사진 검색용 영어 키워드 3개를 뽑아라.
+각 키워드는 loremflickr에서 검색 가능한 '흔하고 이미지가 많은 단일 영어 명사'여야 한다
+(예: dog, puppy, grooming, veterinarian, leash, shelter, kitten, vaccine).
+기사의 서로 다른 장면/주제를 대표하도록 3개를 고르고, 본문 단락 흐름 순서대로 배치하라.
+
+반드시 JSON으로만:
+{{"keywords": ["word1", "word2", "word3"]}}
+
+[제목] {title}
+[본문] {body}
+"""
+
+
+def image_keywords(article: dict, api_key: str) -> list:
+    """기사 내용에 맞는 단일어 영어 이미지 키워드 3개를 [{kw}] 형태로 반환."""
+    if not api_key:
+        return []
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model=config.MODEL_REVIEWER, max_tokens=200,
+            messages=[{"role": "user", "content": IMG_KW_PROMPT.format(
+                title=article.get("article_title", "") or article.get("title", ""),
+                body=article.get("article_body", "")[:2500],
+            )}],
+        )
+        kws = _extract_json(resp.content[0].text).get("keywords", [])
+        return [{"kw": str(k).strip()} for k in kws[:3] if str(k).strip()]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("이미지 키워드 생성 실패: %s", exc)
+        return []
+
+
 def write_deep_article(seed: dict, related_items: list, api_key: str) -> dict:
     """씨앗 기사 → 심층 기사 dict (article_title/article_body/article_summary 부착)."""
     if not api_key:

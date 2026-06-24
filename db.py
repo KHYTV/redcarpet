@@ -1,9 +1,10 @@
 # Copyright (c) 2026 RedCarpet Project. All rights reserved.
 # Proprietary and confidential. See LICENSE.
-"""기사 아카이브 DB (SQLite).
+"""기사 아카이브 + SNS 인게이지먼트 DB (SQLite).
 
-전체 기사를 output/redcarpet.db에 누적 보관한다. source_key(원본 식별자)로
-UPSERT하여 재실행 시 중복을 방지하고, 웹 빌더는 DB에서 읽어 누적 게재한다.
+- articles: 전체 기사 누적 보관 (source_key UPSERT, 중복 방지)
+- likes / comments: 반려동물 SNS 좋아요·댓글 (source_key 기준, 서버에서 공유)
+웹 빌더는 articles를 읽어 누적 게재하고, server.py가 likes/comments를 읽고 쓴다.
 """
 
 import json
@@ -17,22 +18,21 @@ DB_PATH = os.path.join(config.OUTPUT_DIR, "redcarpet.db")
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
   source_key   TEXT PRIMARY KEY,
-  title        TEXT,
-  lead         TEXT,
-  paragraphs   TEXT,
-  category     TEXT,
-  photo_query  TEXT,
-  pub_date     TEXT,
-  source_type  TEXT,
-  grade        TEXT,
-  score        INTEGER,
-  ethics_score INTEGER,
-  ethics_passed INTEGER,
-  ethics_violations TEXT,
-  deep_angles  TEXT,
-  is_deep      INTEGER,
-  created_at   TEXT DEFAULT (datetime('now')),
-  updated_at   TEXT DEFAULT (datetime('now'))
+  title TEXT, lead TEXT, paragraphs TEXT, category TEXT, photo_query TEXT,
+  pub_date TEXT, source_type TEXT, grade TEXT, score INTEGER,
+  ethics_score INTEGER, ethics_passed INTEGER, ethics_violations TEXT,
+  deep_angles TEXT, is_deep INTEGER, image_keywords TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS likes (
+  article_key TEXT PRIMARY KEY,
+  count INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS comments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  article_key TEXT, name TEXT, text TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
 );
 """
 
@@ -47,71 +47,72 @@ def _conn():
 def init_db():
     with _conn() as c:
         c.executescript(SCHEMA)
+        # 기존 DB에 image_keywords 컬럼이 없으면 추가
+        cols = [r[1] for r in c.execute("PRAGMA table_info(articles)").fetchall()]
+        if "image_keywords" not in cols:
+            c.execute("ALTER TABLE articles ADD COLUMN image_keywords TEXT")
 
 
+# ---------- articles ----------
 def _row(a):
     return {
-        "source_key": a["source_key"],
-        "title": a.get("title", ""),
-        "lead": a.get("lead", ""),
+        "source_key": a["source_key"], "title": a.get("title", ""), "lead": a.get("lead", ""),
         "paragraphs": json.dumps(a.get("paragraphs", []), ensure_ascii=False),
-        "category": a.get("category", "general"),
-        "photo_query": a.get("photo_query", "pet"),
-        "pub_date": a.get("pub_date", ""),
-        "source_type": a.get("source_type", ""),
-        "grade": a.get("grade"),
-        "score": a.get("score"),
+        "category": a.get("category", "general"), "photo_query": a.get("photo_query", "pet"),
+        "pub_date": a.get("pub_date", ""), "source_type": a.get("source_type", ""),
+        "grade": a.get("grade"), "score": a.get("score"),
         "ethics_score": a.get("ethics_score"),
         "ethics_passed": 1 if a.get("ethics_passed", True) else 0,
         "ethics_violations": json.dumps(a.get("ethics_violations", []), ensure_ascii=False),
         "deep_angles": json.dumps(a.get("deep_angles", []), ensure_ascii=False),
         "is_deep": 1 if a.get("is_deep") else 0,
+        "image_keywords": json.dumps(a.get("image_keywords", []), ensure_ascii=False),
     }
 
 
 def upsert_article(a):
-    """source_key 기준 UPSERT. created_at은 보존, updated_at만 갱신."""
     init_db()
-    r = _row(a)
     with _conn() as c:
         c.execute("""
             INSERT INTO articles
               (source_key,title,lead,paragraphs,category,photo_query,pub_date,source_type,
-               grade,score,ethics_score,ethics_passed,ethics_violations,deep_angles,is_deep)
+               grade,score,ethics_score,ethics_passed,ethics_violations,deep_angles,is_deep,image_keywords)
             VALUES
               (:source_key,:title,:lead,:paragraphs,:category,:photo_query,:pub_date,:source_type,
-               :grade,:score,:ethics_score,:ethics_passed,:ethics_violations,:deep_angles,:is_deep)
+               :grade,:score,:ethics_score,:ethics_passed,:ethics_violations,:deep_angles,:is_deep,:image_keywords)
             ON CONFLICT(source_key) DO UPDATE SET
               title=excluded.title, lead=excluded.lead, paragraphs=excluded.paragraphs,
               category=excluded.category, photo_query=excluded.photo_query, pub_date=excluded.pub_date,
               source_type=excluded.source_type, grade=excluded.grade, score=excluded.score,
               ethics_score=excluded.ethics_score, ethics_passed=excluded.ethics_passed,
               ethics_violations=excluded.ethics_violations, deep_angles=excluded.deep_angles,
-              is_deep=excluded.is_deep, updated_at=datetime('now')
-        """, r)
+              is_deep=excluded.is_deep, image_keywords=excluded.image_keywords, updated_at=datetime('now')
+        """, _row(a))
+
+
+def set_image_keywords(source_key, kws):
+    init_db()
+    with _conn() as c:
+        c.execute("UPDATE articles SET image_keywords=? WHERE source_key=?",
+                  (json.dumps(kws, ensure_ascii=False), source_key))
 
 
 def _deser(row):
     d = dict(row)
-    d["paragraphs"] = json.loads(d.get("paragraphs") or "[]")
-    d["ethics_violations"] = json.loads(d.get("ethics_violations") or "[]")
-    d["deep_angles"] = json.loads(d.get("deep_angles") or "[]")
+    for k in ("paragraphs", "ethics_violations", "deep_angles", "image_keywords"):
+        d[k] = json.loads(d.get(k) or "[]")
     d["ethics_passed"] = bool(d.get("ethics_passed"))
     return d
 
 
 def get_all():
-    """전체 기사 (최신 발행일 → 최근 생성 순)."""
     init_db()
     with _conn() as c:
-        rows = c.execute(
-            "SELECT * FROM articles ORDER BY pub_date DESC, created_at DESC"
-        ).fetchall()
+        rows = c.execute("SELECT * FROM articles ORDER BY pub_date DESC, created_at DESC").fetchall()
     return [_deser(r) for r in rows]
 
 
 def get_published(limit=None):
-    """윤리 통과(게재 가능) 기사만."""
     return [a for a in get_all() if a["ethics_passed"]][: limit or None]
 
 
@@ -121,6 +122,40 @@ def count():
         return c.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
 
 
+# ---------- SNS: likes / comments ----------
+def add_like(article_key):
+    init_db()
+    with _conn() as c:
+        c.execute("INSERT INTO likes(article_key,count) VALUES(?,1) "
+                  "ON CONFLICT(article_key) DO UPDATE SET count=count+1", (article_key,))
+        return c.execute("SELECT count FROM likes WHERE article_key=?", (article_key,)).fetchone()[0]
+
+
+def add_comment(article_key, name, text):
+    init_db()
+    name = (name or "익명").strip()[:40]
+    text = (text or "").strip()[:500]
+    if not text:
+        return None
+    with _conn() as c:
+        c.execute("INSERT INTO comments(article_key,name,text) VALUES(?,?,?)",
+                  (article_key, name, text))
+    return {"name": name, "text": text}
+
+
+def get_engagement():
+    """{source_key: {likes:int, comments:[{name,text,created_at}]}} 전체 반환."""
+    init_db()
+    eng = {}
+    with _conn() as c:
+        for r in c.execute("SELECT article_key,count FROM likes").fetchall():
+            eng.setdefault(r["article_key"], {"likes": 0, "comments": []})["likes"] = r["count"]
+        for r in c.execute("SELECT article_key,name,text,created_at FROM comments ORDER BY id ASC").fetchall():
+            eng.setdefault(r["article_key"], {"likes": 0, "comments": []})["comments"].append(
+                {"name": r["name"], "text": r["text"], "created_at": r["created_at"]})
+    return eng
+
+
 if __name__ == "__main__":
     init_db()
-    print("DB:", DB_PATH, "| 기사 수:", count())
+    print("DB:", DB_PATH, "| 기사:", count(), "| 인게이지먼트:", len(get_engagement()))

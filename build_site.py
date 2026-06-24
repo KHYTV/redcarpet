@@ -171,6 +171,7 @@ def main():
             "ethics_score": deep.get("ethics_score"), "ethics_passed": deep.get("ethics_passed"),
             "ethics_violations": deep.get("ethics_violations", []),
             "is_deep": True, "deep_angles": deep.get("deep_angles", []),
+            "image_keywords": deep_writer.image_keywords(deep, key),  # 단락 매칭 이미지 키워드
         }
         web.append(entry)
         db.upsert_article(entry)  # DB에 누적 보관(중복은 source_key로 갱신)
