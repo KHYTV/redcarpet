@@ -1,11 +1,12 @@
 # Copyright (c) 2026 RedCarpet Project. All rights reserved.
 # Proprietary and confidential. See LICENSE.
-"""웹 게시 샘플 HTML 생성 (RedCar Pet — 윤리 준칙 검증판).
+"""웹 게시 샘플 HTML 생성 (RedCar Pet — 페이스북형 뉴스피드).
 
-_web_articles.json을 읽어 RedCar Pet 펫 매거진 페이지(output/web_sample.html)를 만든다.
-- 윤리 준칙 통과 기사만 게재하고, 각 기사에 윤리 준칙 점수 배지를 표시한다.
-- 준칙 거부(ethics_passed=False) 기사는 '편집 보류'로 별도 표기해 차별점을 보여준다.
-- 이미지는 photo_query 기반 토픽 매칭 사진(loremflickr)을 base64로 임베드한다.
+DB(누적 아카이브)에서 기사를 읽어 페이스북 피드 스타일로 렌더링한다.
+- 단일 컬럼 피드(아바타·헤더·이미지·액션바)
+- 카드 클릭 → 전문 모달, 본문 단락 사이에 내용 부합 이미지 3장 삽입
+- 모든 이미지는 base64 임베드(자체완결·오프라인)
+- 윤리 준칙 점수 배지 / 준칙 미달은 '게재 보류' 표기
 """
 
 import base64
@@ -16,9 +17,8 @@ import requests
 
 import db
 
-# DB(누적 아카이브)에서 전체 기사를 읽어 기존+신규를 함께 게재
 ART = db.get_all()
-if not ART:  # DB 비어있으면 과거 JSON으로 폴백
+if not ART:
     try:
         ART = json.load(open("output/results/_web_articles.json", encoding="utf-8"))
     except Exception:
@@ -28,195 +28,172 @@ CAT_LABEL = {"dog": "반려견", "cat": "반려묘", "health": "건강", "traini
              "loss": "반려동물 추모", "general": "소식"}
 CAT_COLOR = {"dog": "#1D9E75", "cat": "#7F77DD", "health": "#378ADD", "training": "#BA7517",
              "loss": "#D4537E", "general": "#5F5E5A"}
-CAT_KEYWORD = {"dog": "dog", "cat": "cat", "health": "puppy", "training": "dog",
-               "loss": "dog", "general": "pet"}
-
+CAT_EMOJI = {"dog": "🐶", "cat": "🐱", "health": "🩺", "training": "🦴",
+             "loss": "🤍", "general": "🐾"}
+# 본문용 단일 키워드 세트(loremflickr는 단일 키워드에서 안정적). 같은 단어도 lock으로 다른 사진.
+BODY_KW = {
+    "dog": ["dog", "puppy", "dog"], "cat": ["cat", "kitten", "cat"],
+    "health": ["puppy", "dog", "pet"], "training": ["dog", "puppy", "dog"],
+    "loss": ["dog", "puppy", "dog"], "general": ["pet", "dog", "cat"],
+}
+N_BODY_IMG = 3
 _HDR = {"User-Agent": "Mozilla/5.0"}
+_cache = {}
 
 
-def img_data_uri(category, i, w=1000, h=560):
-    kw = CAT_KEYWORD.get(category, "pet")
+def fetch_img(keyword, lock, w=900, h=500):
+    """토픽 이미지 base64 data URI (캐시)."""
+    ck = (keyword, lock)
+    if ck in _cache:
+        return _cache[ck]
+    uri = ""
     try:
-        r = requests.get(f"https://loremflickr.com/{w}/{h}/{kw}?lock={i+7}",
+        r = requests.get(f"https://loremflickr.com/{w}/{h}/{keyword}?lock={lock}",
                          headers=_HDR, timeout=25, allow_redirects=True)
         if r.status_code == 200 and r.headers.get("content-type", "").startswith("image"):
-            b64 = base64.b64encode(r.content).decode("ascii")
-            print(f"  이미지 [{category}/{kw}] {len(r.content)//1024}KB 임베드")
-            return f"data:image/jpeg;base64,{b64}"
+            uri = "data:image/jpeg;base64," + base64.b64encode(r.content).decode("ascii")
+            print(f"  이미지 [{keyword}#{lock}] {len(r.content)//1024}KB")
     except Exception as exc:  # noqa: BLE001
-        print(f"  이미지 실패 [{category}]: {exc}")
-    return ""
+        print(f"  이미지 실패 [{keyword}]: {exc}")
+    _cache[ck] = uri
+    return uri
+
+
+def body_images(cat, idx):
+    kws = BODY_KW.get(cat, ["pet", "dog", "cat"])
+    return [fetch_img(kws[k % len(kws)], idx * 10 + k + 1) for k in range(N_BODY_IMG)]
 
 
 def ethics_badge(score):
-    """윤리 준칙 점수 배지 색상(점수대별)."""
     if score is None:
-        return "#5F5E5A", "미평가"
-    if score >= 90:
-        return "#0F6E56", f"윤리 준칙 {score}"
-    if score >= 70:
-        return "#854F0B", f"윤리 준칙 {score}"
-    return "#A32D2D", f"윤리 준칙 {score}"
+        return "#5F5E5A"
+    return "#0F6E56" if score >= 90 else ("#854F0B" if score >= 70 else "#A32D2D")
 
 
-def card(a, i, featured=False):
+# 전체 기사에 이미지 부착 + 발행/보류 분리
+for i, a in enumerate(ART):
+    a["_imgs"] = body_images(a.get("category", "general"), i)
+
+published = [a for a in ART if a.get("ethics_passed", True)]
+rejected = [a for a in ART if not a.get("ethics_passed", True)]
+published.sort(key=lambda x: (x.get("pub_date", ""), x.get("ethics_score") or 0), reverse=True)
+
+# 피드 포스트(서버 렌더) + 모달 데이터(JS)
+posts = []
+arts_data = []
+for i, a in enumerate(published):
     cat = a.get("category", "general")
     color = CAT_COLOR.get(cat, "#5F5E5A")
     label = CAT_LABEL.get(cat, "소식")
+    emoji = CAT_EMOJI.get(cat, "🐾")
     src = "레딧" if a.get("source_type") == "reddit" else "국내뉴스"
-    cls = "card featured" if featured else "card"
-    uri = img_data_uri(cat, i)
-    img_html = (f'<img src="{uri}" alt="{html.escape(a.get("title",""))}">' if uri
-                else f'<div class="noimg" style="background:{color}"></div>')
-    e_color, e_text = ethics_badge(a.get("ethics_score"))
+    e_color = ethics_badge(a.get("ethics_score"))
+    hero = a["_imgs"][0] if a["_imgs"] else ""
+    hero_html = (f'<img src="{hero}" alt="{html.escape(a.get("title",""))}">'
+                 if hero else f'<div class="noimg" style="background:{color}"></div>')
     n_ang = len(a.get("deep_angles", []))
-    deep_meta = f'<span>심층 {n_ang}각도 통합</span><span>·</span>' if n_ang else ''
-    return f"""
-    <article class="{cls}" onclick="openArt({i})" tabindex="0" role="button" aria-label="전문 보기: {html.escape(a.get('title',''))}">
-      <div class="hero">
-        {img_html}
-        <span class="badge" style="background:{color}">{label}</span>
-        <span class="deepmark">심층</span>
-        <span class="ethics" style="background:{e_color}"><span class="dot">✓</span> {e_text}</span>
-        <span class="cap">사진: {html.escape(a.get('photo_query',''))}</span>
+    posts.append(f"""
+    <article class="post" onclick="openArt({i})" tabindex="0" role="button" aria-label="전문 보기: {html.escape(a.get('title',''))}">
+      <div class="phead">
+        <div class="avatar" style="background:{color}">{emoji}</div>
+        <div class="pinfo">
+          <div class="pname">RedCar Pet <span class="cat" style="color:{color}">· {label}</span></div>
+          <div class="pmeta">{a.get('pub_date','')} · 심층 {n_ang}각도 · 출처 {src}</div>
+        </div>
+        <span class="epill" style="background:{e_color}">✓ 윤리 {a.get('ethics_score','-')}</span>
       </div>
-      <div class="body">
-        <h2>{html.escape(a.get('title',''))}</h2>
-        <p class="lead">{html.escape(a.get('lead',''))}</p>
-        <div class="meta">{deep_meta}<span>출처 {src}</span><span>·</span><span>{a.get('pub_date','')}</span></div>
-        <span class="readmore">기사 전문 보기 →</span>
+      <h2 class="ptitle">{html.escape(a.get('title',''))}</h2>
+      <p class="plead">{html.escape(a.get('lead',''))}</p>
+      <div class="pimg">{hero_html}</div>
+      <div class="pactions">
+        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M7 10v11M2 13v6a1 1 0 001 1h3V10H3a1 1 0 00-1 1zm5 0 4.5-8a2 2 0 013.8 1.2L19 9h2.5a2 2 0 012 2.4l-1.5 7a2 2 0 01-2 1.6H7"/></svg>좋아요</span>
+        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M21 11.5a8.4 8.4 0 01-9 8.4L3 21l1.1-3.3A8.4 8.4 0 1121 11.5z"/></svg>댓글</span>
+        <span class="act"><svg viewBox="0 0 24 24" class="ico"><path d="M4 12v8a1 1 0 001 1h14a1 1 0 001-1v-8M16 6l-4-4-4 4M12 2v14"/></svg>공유</span>
+        <span class="readmore">전문 보기 →</span>
       </div>
-    </article>"""
+    </article>""")
+    arts_data.append({
+        "title": a.get("title", ""), "lead": a.get("lead", ""),
+        "paragraphs": a.get("paragraphs", []), "images": a["_imgs"],
+        "label": label, "color": color, "emoji": emoji,
+        "date": a.get("pub_date", ""), "ethics": a.get("ethics_score"),
+        "src": src, "angles": a.get("deep_angles", []),
+    })
 
+arts_js = json.dumps(arts_data, ensure_ascii=False)
 
-def section(title, items, start_i):
-    cards = []
-    for j, a in enumerate(items):
-        cards.append(card(a, start_i + j, featured=(j == 0)))
-    return f'<section><h3 class="sec">{title}</h3><div class="grid">{"".join(cards)}</div></section>'
-
-
-# 윤리 준칙 통과/거부 분리
-published = [a for a in ART if a.get("ethics_passed", True)]
-rejected = [a for a in ART if not a.get("ethics_passed", True)]
-
-dates = sorted({a["pub_date"] for a in published}, reverse=True)
-sections = []
-flat = []  # 렌더 순서대로의 기사 (모달 인덱스와 일치)
-i = 0
-for d in dates:
-    items = sorted([a for a in published if a["pub_date"] == d],
-                   key=lambda x: (x.get("ethics_score") or 0, x.get("score", 0)), reverse=True)
-    mm_dd = "·".join(d.split("-")[1:])
-    sections.append(section(f"{mm_dd} 발행", items, i))
-    flat.extend(items)
-    i += len(items)
-
-# 모달용 기사 데이터 (전문 포함)
-arts_js = json.dumps([
-    {
-        "title": a.get("title", ""),
-        "lead": a.get("lead", ""),
-        "paragraphs": a.get("paragraphs", []),
-        "label": CAT_LABEL.get(a.get("category", "general"), "소식"),
-        "color": CAT_COLOR.get(a.get("category", "general"), "#5F5E5A"),
-        "date": a.get("pub_date", ""),
-        "ethics": a.get("ethics_score"),
-        "src": "레딧" if a.get("source_type") == "reddit" else "국내뉴스",
-        "angles": a.get("deep_angles", []),
-    }
-    for a in flat
-], ensure_ascii=False)
-
-# 준칙 미게재 블록
 rejected_html = ""
 if rejected:
     rows = "".join(
-        f'<li><b>{html.escape(r["title"])}</b> — 윤리 준칙 {r.get("ethics_score","?")}점, '
-        f'위반 {", ".join(v.get("principle","") for v in r.get("ethics_violations",[]))} '
-        f'(예: {html.escape((r.get("ethics_violations") or [{}])[0].get("detail","")[:50])})</li>'
-        for r in rejected
-    )
-    rejected_html = f"""
-    <section class="held">
-      <h3 class="sec held-h">⛔ 윤리 준칙 미달로 게재 보류 ({len(rejected)}건)</h3>
-      <p class="held-desc">사실·품질은 충족했으나 동물보도 윤리 준칙 위반으로 자동 발행 거부된 기사입니다.</p>
-      <ul>{rows}</ul>
-    </section>"""
+        f'<li><b>{html.escape(r["title"])}</b> — 윤리 {r.get("ethics_score","?")}점, '
+        f'위반 {", ".join(v.get("principle","") for v in r.get("ethics_violations",[]))}</li>'
+        for r in rejected)
+    rejected_html = f'<div class="held"><div class="held-h">⛔ 윤리 준칙 미달로 게재 보류 ({len(rejected)}건)</div><ul>{rows}</ul></div>'
 
 avg = round(sum(a.get("ethics_score") or 0 for a in published) / max(len(published), 1))
 
 HTML = f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>RedCar Pet — 동물권 지향 펫 매거진</title>
+<title>RedCar Pet — 반려동물 뉴스피드</title>
 <style>
-  * {{ box-sizing: border-box; }}
-  body {{ font-family: 'Apple SD Gothic Neo','Malgun Gothic',sans-serif; margin:0; background:#faf9f6; color:#1f1f1f; line-height:1.7; }}
-  header.site {{ background:#fff; border-bottom:3px solid #c0392b; padding:22px 20px; text-align:center; }}
-  header.site h1 {{ margin:0; font-size:30px; color:#c0392b; letter-spacing:-0.5px; }}
-  header.site .tag {{ margin:4px 0 0; color:#666; font-size:14px; }}
-  header.site .ethics-line {{ margin-top:8px; display:inline-block; background:#0F6E56; color:#fff; font-size:13px; padding:4px 12px; border-radius:20px; }}
-  .wrap {{ max-width:1080px; margin:0 auto; padding:24px 20px 60px; }}
-  h3.sec {{ font-size:15px; color:#c0392b; border-left:4px solid #c0392b; padding-left:10px; margin:34px 0 16px; }}
-  .grid {{ display:grid; grid-template-columns:repeat(2,1fr); gap:22px; }}
-  .card {{ background:#fff; border:1px solid #eee; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; cursor:pointer; transition:box-shadow .15s, transform .15s; }}
-  .card:hover {{ box-shadow:0 6px 20px rgba(0,0,0,.10); transform:translateY(-2px); }}
-  .card:focus {{ outline:2px solid #c0392b; outline-offset:2px; }}
-  .card.featured {{ grid-column:1 / -1; }}
-  .readmore {{ display:inline-block; margin-top:10px; color:#c0392b; font-size:14px; font-weight:500; }}
-  .overlay {{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-start; justify-content:center; padding:40px 16px; overflow-y:auto; z-index:100; }}
-  .overlay.open {{ display:flex; }}
-  .modal {{ background:#fff; max-width:720px; width:100%; border-radius:14px; overflow:hidden; }}
-  .modal-band {{ height:8px; }}
-  .modal-inner {{ padding:26px 30px 34px; }}
-  .modal .tags {{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; }}
-  .modal .tag {{ padding:3px 10px; border-radius:6px; color:#fff; }}
-  .modal h2 {{ font-size:26px; line-height:1.35; margin:0 0 12px; color:#1a1a1a; }}
-  .modal .mlead {{ color:#c0392b; font-size:16px; font-weight:500; margin:0 0 18px; line-height:1.6; }}
-  .modal .mbody p {{ font-size:16px; line-height:1.8; color:#333; margin:0 0 14px; }}
-  .modal .angles {{ margin-top:20px; padding:14px 16px; background:#f6f5f1; border-radius:10px; font-size:13px; color:#555; }}
-  .modal .angles b {{ color:#333; font-weight:500; }}
-  .modal-close {{ float:right; cursor:pointer; font-size:22px; color:#999; line-height:1; border:none; background:none; }}
-  @media (max-width:720px) {{ .modal-inner {{ padding:20px; }} .modal h2 {{ font-size:22px; }} }}
-  .hero {{ position:relative; background:#ece9e2; aspect-ratio:16/7; overflow:hidden; }}
-  .card:not(.featured) .hero {{ aspect-ratio:16/9; }}
-  .hero img {{ width:100%; height:100%; object-fit:cover; display:block; }}
-  .badge {{ position:absolute; top:12px; left:12px; color:#fff; font-size:12px; padding:4px 10px; border-radius:6px; }}
-  .deepmark {{ position:absolute; top:12px; left:74px; background:#1f1f1f; color:#fff; font-size:12px; padding:4px 9px; border-radius:6px; font-weight:500; }}
-  .ethics {{ position:absolute; top:12px; right:12px; color:#fff; font-size:12px; padding:4px 10px; border-radius:6px; font-weight:500; }}
-  .ethics .dot {{ font-weight:700; }}
-  .cap {{ position:absolute; bottom:8px; right:10px; background:rgba(0,0,0,.55); color:#fff; font-size:11px; padding:2px 7px; border-radius:4px; }}
-  .body {{ padding:16px 18px 18px; }}
-  .body h2 {{ margin:0 0 8px; font-size:20px; line-height:1.35; }}
-  .card.featured .body h2 {{ font-size:26px; }}
-  .lead {{ color:#c0392b; font-size:15px; margin:0 0 10px; font-weight:500; }}
-  .body p {{ margin:0 0 10px; color:#333; font-size:15px; }}
-  .meta {{ display:flex; gap:6px; color:#999; font-size:13px; margin-top:6px; }}
-  .held {{ margin-top:36px; background:#fbeeee; border:1px solid #f0d0d0; border-radius:12px; padding:6px 20px 16px; }}
-  .held-h {{ color:#A32D2D; border-left-color:#A32D2D; }}
-  .held-desc {{ color:#7a4a4a; font-size:14px; margin:0 0 8px; }}
+  * {{ box-sizing:border-box; }}
+  body {{ font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; margin:0; background:#f0f2f5; color:#1c1e21; }}
+  .topbar {{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid #dadde1; padding:12px 16px; display:flex; align-items:center; justify-content:center; gap:10px; }}
+  .topbar .logo {{ font-size:22px; font-weight:700; color:#c0392b; }}
+  .topbar .tag {{ font-size:13px; color:#65676b; }}
+  .feed {{ max-width:600px; margin:18px auto; padding:0 12px; display:flex; flex-direction:column; gap:16px; }}
+  .post {{ background:#fff; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.1); padding:14px 16px 6px; cursor:pointer; transition:box-shadow .15s; }}
+  .post:hover {{ box-shadow:0 3px 12px rgba(0,0,0,.15); }}
+  .post:focus {{ outline:2px solid #c0392b; outline-offset:2px; }}
+  .phead {{ display:flex; align-items:center; gap:10px; }}
+  .avatar {{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; flex:0 0 auto; }}
+  .pinfo {{ flex:1; min-width:0; }}
+  .pname {{ font-weight:600; font-size:15px; }}
+  .pname .cat {{ font-weight:500; }}
+  .pmeta {{ font-size:12px; color:#65676b; }}
+  .epill {{ flex:0 0 auto; color:#fff; font-size:12px; padding:4px 9px; border-radius:14px; font-weight:500; }}
+  .ptitle {{ font-size:19px; font-weight:700; line-height:1.35; margin:12px 0 6px; }}
+  .plead {{ font-size:15px; color:#1c1e21; line-height:1.6; margin:0 0 12px; }}
+  .pimg {{ margin:0 -16px; background:#e4e6eb; }}
+  .pimg img {{ width:100%; display:block; max-height:360px; object-fit:cover; }}
+  .pimg .noimg {{ width:100%; height:240px; }}
+  .pactions {{ display:flex; align-items:center; gap:18px; border-top:1px solid #eceef0; margin-top:8px; padding:6px 2px; color:#65676b; font-size:14px; }}
+  .act {{ display:inline-flex; align-items:center; gap:5px; }}
+  .ico {{ width:18px; height:18px; fill:none; stroke:#65676b; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }}
+  .readmore {{ margin-left:auto; color:#c0392b; font-weight:600; }}
+  .held {{ max-width:600px; margin:18px auto; padding:14px 18px; background:#fbeeee; border:1px solid #f0d0d0; border-radius:12px; }}
+  .held-h {{ color:#A32D2D; font-weight:600; margin-bottom:8px; }}
   .held ul {{ margin:0; padding-left:18px; color:#5a3a3a; font-size:14px; }}
-  .held li {{ margin-bottom:6px; }}
-  @media (max-width:720px) {{ .grid {{ grid-template-columns:1fr; }} }}
+  .held li {{ margin-bottom:5px; }}
+  .overlay {{ position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-start; justify-content:center; padding:32px 14px; overflow-y:auto; z-index:100; }}
+  .overlay.open {{ display:flex; }}
+  .modal {{ background:#fff; max-width:680px; width:100%; border-radius:14px; overflow:hidden; }}
+  .mband {{ height:8px; }}
+  .minner {{ padding:24px 28px 32px; }}
+  .mclose {{ float:right; cursor:pointer; font-size:22px; color:#999; border:none; background:none; }}
+  .mtags {{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; align-items:center; }}
+  .mtags .t {{ padding:3px 10px; border-radius:14px; color:#fff; }}
+  .modal h2 {{ font-size:25px; line-height:1.35; margin:0 0 12px; }}
+  .mlead {{ color:#c0392b; font-size:16px; font-weight:600; margin:0 0 18px; line-height:1.6; }}
+  .mbody p {{ font-size:16px; line-height:1.85; color:#222; margin:0 0 16px; }}
+  .mbody img {{ width:100%; border-radius:10px; margin:6px 0 18px; display:block; }}
+  .angles {{ margin-top:18px; padding:14px 16px; background:#f0f2f5; border-radius:10px; font-size:13px; color:#444; line-height:1.7; }}
+  @media (max-width:480px) {{ .minner {{ padding:18px; }} .modal h2 {{ font-size:21px; }} }}
 </style></head>
 <body>
-<header class="site">
-  <h1>🐾 RedCar Pet</h1>
-  <div class="tag">동물권 지향 AI 심층 저널리즘 · 게시 샘플</div>
-  <div class="ethics-line">✓ 2단계 심층 보도 · 동물보도 윤리 준칙 검증 · 게재 평균 {avg}점</div>
-</header>
-<div class="wrap">
-{''.join(sections)}
-{rejected_html}
+<div class="topbar"><span class="logo">🐾 RedCar Pet</span><span class="tag">동물권 지향 뉴스피드 · 윤리 평균 {avg}점 · {len(published)}건</span></div>
+<div class="feed">
+{''.join(posts)}
 </div>
+{rejected_html}
 
 <div class="overlay" id="overlay" onclick="if(event.target===this)closeArt()">
   <div class="modal" role="dialog" aria-modal="true">
-    <div class="modal-band" id="m-band"></div>
-    <div class="modal-inner">
-      <button class="modal-close" onclick="closeArt()" aria-label="닫기">✕</button>
-      <div class="tags" id="m-tags"></div>
+    <div class="mband" id="m-band"></div>
+    <div class="minner">
+      <button class="mclose" onclick="closeArt()" aria-label="닫기">✕</button>
+      <div class="mtags" id="m-tags"></div>
       <h2 id="m-title"></h2>
       <p class="mlead" id="m-lead"></p>
       <div class="mbody" id="m-body"></div>
@@ -224,7 +201,6 @@ HTML = f"""<!DOCTYPE html>
     </div>
   </div>
 </div>
-
 <script>
 const ARTS = {arts_js};
 const ov = document.getElementById('overlay');
@@ -234,12 +210,22 @@ function openArt(i){{
   document.getElementById('m-band').style.background = a.color;
   document.getElementById('m-title').textContent = a.title;
   document.getElementById('m-lead').textContent = a.lead;
-  document.getElementById('m-body').innerHTML = a.paragraphs.map(p=>'<p>'+esc(p)+'</p>').join('');
+  // 본문 단락 사이에 이미지 분산 삽입
+  const P = a.paragraphs || [], IM = (a.images||[]).filter(Boolean);
+  let html = '';
+  const slots = [];
+  for(let k=0;k<IM.length;k++) slots.push(Math.round((k+1)*P.length/(IM.length+1))-1);
+  for(let p=0;p<P.length;p++){{
+    html += '<p>'+esc(P[p])+'</p>';
+    const si = slots.indexOf(p);
+    if(si>=0 && IM[si]) html += '<img src="'+IM[si]+'" alt="">';
+  }}
+  document.getElementById('m-body').innerHTML = html;
   document.getElementById('m-tags').innerHTML =
-    '<span class="tag" style="background:'+a.color+'">'+esc(a.label)+'</span>'+
-    '<span class="tag" style="background:#1f1f1f">심층</span>'+
-    '<span class="tag" style="background:#0F6E56">✓ 윤리 준칙 '+(a.ethics??'-')+'</span>'+
-    '<span style="color:#999;align-self:center">출처 '+esc(a.src)+' · '+esc(a.date)+'</span>';
+    '<span class="t" style="background:'+a.color+'">'+esc(a.emoji+' '+a.label)+'</span>'+
+    '<span class="t" style="background:#1f1f1f">심층</span>'+
+    '<span class="t" style="background:#0F6E56">✓ 윤리 준칙 '+(a.ethics??'-')+'</span>'+
+    '<span style="color:#999">'+esc(a.date+' · 출처 '+a.src)+'</span>';
   document.getElementById('m-angles').innerHTML = a.angles && a.angles.length
     ? '<b>심층 확장 각도 '+a.angles.length+'개</b><br>'+a.angles.map(x=>'· '+esc(x)).join('<br>') : '';
   ov.classList.add('open'); document.body.style.overflow='hidden';
@@ -250,4 +236,4 @@ document.addEventListener('keydown', e=>{{ if(e.key==='Escape') closeArt(); }});
 </body></html>"""
 
 open("output/web_sample.html", "w", encoding="utf-8").write(HTML)
-print(f"SAVED | 게재 {len(published)}건(평균 윤리 {avg}점), 보류 {len(rejected)}건, {len(HTML)} bytes")
+print(f"SAVED | 피드 {len(published)}건(윤리 평균 {avg}), 보류 {len(rejected)}건, {len(HTML)} bytes")
