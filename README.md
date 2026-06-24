@@ -94,17 +94,35 @@ python test_runner.py       # 인자 없으면 1,2만 실행 (API 불필요)
 
 > 팩트체크에서 high severity 오류 발견 시 점수와 무관하게 강제 C등급.
 
-## cron 배포
+## 일일 자동 빌드
 
-매일 오전 5시(Asia/Seoul) 실행:
-
-```cron
-0 5 * * * /path/to/redcarpet/run.sh
-```
+`build_site.py`가 수집 → 1차 기사 → 2차 심층화 → 윤리검증 → `web_sample.html` 재생성까지
+end-to-end로 실행한다. 환경변수 `DAILY_CAP`(기본 5)으로 일일 처리량 조절.
 
 ```bash
-chmod +x run.sh
-crontab -e   # 위 줄 추가
+python build_site.py          # 수동 실행
+DAILY_CAP=3 python build_site.py
+```
+
+### Windows 작업 스케줄러 (매일 09:00 KST)
+
+`run_site.bat`을 매일 오전 9시에 실행하도록 등록 (PowerShell):
+
+```powershell
+$action = New-ScheduledTaskAction -Execute "D:\alcohol studies\redcarpet\run_site.bat"
+$trigger = New-ScheduledTaskTrigger -Daily -At "09:00"
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+Register-ScheduledTask -TaskName "RedCarPet_DailyBuild" -Action $action -Trigger $trigger -Settings $settings -Force
+```
+
+- 작업명 `RedCarPet_DailyBuild` · 로그 `logs/daily_build.log`
+- PC가 09:00에 꺼져 있으면 `StartWhenAvailable`로 켜진 직후 실행
+- 해제: `Unregister-ScheduledTask -TaskName "RedCarPet_DailyBuild" -Confirm:$false`
+
+### Linux cron (대안)
+
+```cron
+0 9 * * * /path/to/redcarpet/run.sh
 ```
 
 ## 모듈 설명
