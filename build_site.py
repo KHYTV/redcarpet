@@ -21,6 +21,7 @@ from email.utils import parsedate_to_datetime
 import anthropic
 
 import config
+import db
 from collectors import reddit_collector, rss_collector, filter as item_filter
 from processors import (article_writer, fact_checker, article_reviewer,
                         ethics_reviewer, grader, deep_writer)
@@ -137,6 +138,8 @@ def main():
             "article_body": a.get("article_body", ""),
             "title": a.get("article_title", ""),
             "url": a.get("url", ""),
+            # 원본 식별자: URL 우선, 없으면 원제목 → 재실행 시 중복 방지 키
+            "source_key": a.get("url") or ("t:" + a.get("article_title", "")),
             "source_type": a.get("source_type", ""),
             "category": ce.get("category", "general"),
             "photo_query": ce.get("photo_query", "pet"),
@@ -157,7 +160,8 @@ def main():
         deep = article_reviewer.review_article(deep, key)
         deep = ethics_reviewer.ethics_review(deep, key)
         deep = grader.grade_article(deep)
-        web.append({
+        entry = {
+            "source_key": seed["source_key"],
             "title": deep["article_title"],
             "lead": _lead(deep.get("article_summary", ""), deep.get("article_body", "")),
             "paragraphs": _paras(deep.get("article_body", "")),
@@ -167,23 +171,25 @@ def main():
             "ethics_score": deep.get("ethics_score"), "ethics_passed": deep.get("ethics_passed"),
             "ethics_violations": deep.get("ethics_violations", []),
             "is_deep": True, "deep_angles": deep.get("deep_angles", []),
-        })
-        log.info("심층 완료: %s (등급 %s, 윤리 %s)",
+        }
+        web.append(entry)
+        db.upsert_article(entry)  # DB에 누적 보관(중복은 source_key로 갱신)
+        log.info("심층 완료·DB저장: %s (등급 %s, 윤리 %s)",
                  deep["article_title"][:28], deep.get("grade"), deep.get("ethics_score"))
 
     os.makedirs(os.path.join(config.RESULTS_DIR), exist_ok=True)
     out = os.path.join(config.RESULTS_DIR, "_web_articles.json")
     json.dump(web, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
-    log.info("심층 기사 %d건 저장 → %s", len(web), out)
+    log.info("이번 빌드 심층 %d건 저장 → %s | DB 누적 %d건", len(web), out, db.count())
 
-    # 6. HTML 재생성
-    if web:
+    # 6. HTML 재생성 (DB에 누적된 전체 기사로 — 오늘 신규 0건이어도 기존분 게재)
+    if db.count() > 0:
         subprocess.run([sys.executable, "build_html.py"], cwd=config.BASE_DIR, check=True)
-        log.info("웹 샘플 재생성 완료")
+        log.info("웹 샘플 재생성 완료 (DB 누적 %d건)", db.count())
     else:
-        log.warning("게재할 심층 기사 0건 — HTML 재생성 건너뜀")
+        log.warning("DB에 기사 0건 — HTML 재생성 건너뜀")
 
-    log.info("=== 일일 빌드 종료: 심층 %d건 ===", len(web))
+    log.info("=== 일일 빌드 종료: 이번 신규 %d건 / DB 총 %d건 ===", len(web), db.count())
 
 
 if __name__ == "__main__":

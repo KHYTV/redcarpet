@@ -14,7 +14,15 @@ import json
 
 import requests
 
-ART = json.load(open("output/results/_web_articles.json", encoding="utf-8"))
+import db
+
+# DB(누적 아카이브)에서 전체 기사를 읽어 기존+신규를 함께 게재
+ART = db.get_all()
+if not ART:  # DB 비어있으면 과거 JSON으로 폴백
+    try:
+        ART = json.load(open("output/results/_web_articles.json", encoding="utf-8"))
+    except Exception:
+        ART = []
 
 CAT_LABEL = {"dog": "반려견", "cat": "반려묘", "health": "건강", "training": "훈련",
              "loss": "반려동물 추모", "general": "소식"}
