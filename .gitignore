@@ -10,3 +10,6 @@ service_account.json
 output/_qr_datauri.txt
 output/qr.png
 output/*.db
+
+deploy/
+cloudflared.exe

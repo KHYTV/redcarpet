@@ -275,7 +275,7 @@ async function like(i, btn){
       document.querySelectorAll('.lc[data-i="'+i+'"]').forEach(x=>x.textContent=r.likes);
       if(curIdx===i) document.getElementById('m-lc').textContent=r.likes;
     }
-  }catch(e){ alert('서버를 통해 접속해야 좋아요가 저장됩니다 (http://...:8000)'); }
+  }catch(e){ engOf(i).likes=(engOf(i).likes||0)+1; document.querySelectorAll('.lc[data-i="'+i+'"]').forEach(x=>x.textContent=engOf(i).likes); if(curIdx===i) document.getElementById('m-lc').textContent=engOf(i).likes; }
 }
 function renderComments(i){
   const cs = engOf(i).comments||[];
@@ -294,7 +294,7 @@ async function sendComment(){
       renderComments(i);
       document.querySelectorAll('.cc[data-i="'+i+'"]').forEach(x=>x.textContent=engOf(i).comments.length);
     }
-  }catch(e){ alert('서버를 통해 접속해야 댓글이 저장됩니다 (http://...:8000)'); }
+  }catch(e){ engOf(i).comments.push({name:name||'익명',text:text}); document.getElementById('m-text').value=''; renderComments(i); document.querySelectorAll('.cc[data-i="'+i+'"]').forEach(x=>x.textContent=engOf(i).comments.length); }
 }
 function openArt(i){
   const a = ARTS[i]; if(!a) return; curIdx=i;
