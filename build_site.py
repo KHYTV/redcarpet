@@ -190,6 +190,14 @@ def main():
     else:
         log.warning("DB에 기사 0건 — HTML 재생성 건너뜀")
 
+    # 7. 정적 호스팅 자동 배포 (DEPLOY_TARGET 설정 시)
+    if config.DEPLOY_TARGET and db.count() > 0:
+        try:
+            import deploy_static
+            deploy_static.deploy()
+        except Exception as exc:  # noqa: BLE001
+            log.exception("[STEP 7] 자동 배포 실패: %s", exc)
+
     log.info("=== 일일 빌드 종료: 이번 신규 %d건 / DB 총 %d건 ===", len(web), db.count())
 
 

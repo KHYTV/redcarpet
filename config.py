@@ -79,6 +79,14 @@ NEWSLETTER_RECIPIENTS = [
     if addr.strip()
 ]
 
+# ===== 자동 배포 (정적 호스팅) =====
+# DEPLOY_TARGET: netlify | cloudflare | "" (빈값이면 자동배포 안 함)
+DEPLOY_TARGET = os.environ.get("DEPLOY_TARGET", "").lower()
+NETLIFY_AUTH_TOKEN = os.environ.get("NETLIFY_AUTH_TOKEN", "")
+NETLIFY_SITE_ID = os.environ.get("NETLIFY_SITE_ID", "")
+CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+CF_PAGES_PROJECT = os.environ.get("CF_PAGES_PROJECT", "")
+
 # ===== 경로 =====
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE_DIR, "output")
