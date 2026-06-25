@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """일자별 기사 생성 (영상 제작 이전까지).
 
 KST(Asia/Seoul) 기준 오늘/어제 발행분만 수집→필터→본문보강→기사작성→

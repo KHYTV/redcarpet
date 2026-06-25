@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """2단계 심층 기사 오케스트레이터 (Stage 2).
 
 1단계에서 추려진 A등급 씨앗 기사를 받아:

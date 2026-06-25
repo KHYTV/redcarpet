@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """정적 사이트 자동 배포.
 
 output/web_sample.html → deploy/index.html 로 복사 후, DEPLOY_TARGET에 따라

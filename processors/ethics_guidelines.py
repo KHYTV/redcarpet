@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """동물보도 윤리 준칙 (Animal Reporting Ethics Constitution).
 
 동물권 지향 언론보도를 위한 7원칙을 코드화한다. 이 준칙은:

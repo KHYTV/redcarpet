@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """RedCarpet 메인 파이프라인.
 
 수집 → 필터 → 기사작성 → 팩트체크 → 검수/등급 → 숏폼 → 저장/발송 순으로 실행한다.

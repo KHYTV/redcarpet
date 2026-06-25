@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """RedCar Pet 일일 웹사이트 빌드 (end-to-end).
 
 수집 → 필터(오늘/어제 KST) → 본문보강 → 1차 기사(작성·팩트체크·검수·윤리·등급)

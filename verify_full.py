@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """실제 Reddit + 국내뉴스 본문보강 통합 end-to-end (Kling 제외).
 
 Reddit 2건 + 국내뉴스 1건만 처리해 비용을 제한한다.

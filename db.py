@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """기사 아카이브 + SNS 인게이지먼트 DB (SQLite).
 
 - articles: 전체 기사 누적 보관 (source_key UPSERT, 중복 방지)

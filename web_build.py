@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """웹 게시 샘플용 기사 준비.
 
 그제(06-21)분 신규 생성 + 어제(06-22)분 재사용 → 교정교열/적합성 판정 패스 →

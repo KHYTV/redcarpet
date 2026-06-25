@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """기사 작성기.
 
 수집/필터링된 아이템을 Claude(Haiku)로 한국어 실용 기사로 재작성한다.

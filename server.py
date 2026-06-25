@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """RedCar Pet SNS 서버 (stdlib만 사용).
 
 정적 파일(web_sample.html 등) 서빙 + 좋아요/댓글 API.

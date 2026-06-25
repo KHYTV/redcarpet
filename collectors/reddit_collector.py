@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """Reddit 수집기 (old.reddit.com HTML 스크래핑).
 
 공식 JSON API와 신 UI는 데이터센터/일부 IP에서 403으로 차단되므로,

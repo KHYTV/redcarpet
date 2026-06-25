@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """Kling 직전 단계까지 실제 데이터 end-to-end 검증.
 
 수집 → 필터 → 기사작성 → 팩트체크 → 검수/등급 → (A등급) 숏폼 대본 생성.

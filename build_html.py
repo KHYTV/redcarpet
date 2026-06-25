@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """웹 게시 샘플 HTML 생성 (RedCar Pet — 페이스북형 뉴스피드).
 
 DB(누적 아카이브)에서 기사를 읽어 페이스북 피드 스타일로 렌더링한다.

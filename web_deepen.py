@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """웹 샘플 기사를 2단계 심층 기사로 전면 교체.
 
 _web_articles.json의 1차(씨앗) 기사들을 deep_pipeline으로 심층화하고,

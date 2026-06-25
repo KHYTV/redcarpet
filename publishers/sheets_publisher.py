@@ -1,5 +1,5 @@
-# Copyright (c) 2026 RedCarpet Project. All rights reserved.
-# Proprietary and confidential. See LICENSE.
+# Copyright (c) 2026 RedCarpet Project
+# Licensed under the MIT License. See LICENSE.
 """Google Sheets 발행기.
 
 Service Account로 Sheets API 인증 후 'articles'/'shortform' 시트에 행을 append 한다.
