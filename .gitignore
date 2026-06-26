@@ -13,3 +13,4 @@ output/*.db
 
 deploy/
 cloudflared.exe
+output/web_sample.html

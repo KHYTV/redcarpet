@@ -82,6 +82,8 @@ NEWSLETTER_RECIPIENTS = [
 # ===== 자동 배포 (정적 호스팅) =====
 # DEPLOY_TARGET: netlify | cloudflare | "" (빈값이면 자동배포 안 함)
 DEPLOY_TARGET = os.environ.get("DEPLOY_TARGET", "").lower()
+# AUTO_GIT_PUSH=1 이면 일일 빌드가 docs/index.html을 커밋·푸시해 GitHub Pages 갱신
+AUTO_GIT_PUSH = os.environ.get("AUTO_GIT_PUSH", "").lower() in ("1", "true", "yes")
 NETLIFY_AUTH_TOKEN = os.environ.get("NETLIFY_AUTH_TOKEN", "")
 NETLIFY_SITE_ID = os.environ.get("NETLIFY_SITE_ID", "")
 CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")

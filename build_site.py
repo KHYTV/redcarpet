@@ -83,6 +83,30 @@ def _lead(summary, body):
     return (body or "")[:80]
 
 
+def _git_publish(date_str):
+    """docs/index.html 변경을 커밋·푸시해 GitHub Pages를 갱신한다."""
+    import shutil
+    git = shutil.which("git") or "git"
+
+    def run(*args):
+        return subprocess.run([git, *args], cwd=config.BASE_DIR,
+                              capture_output=True, text=True, encoding="utf-8", errors="ignore")
+
+    if run("remote", "get-url", "origin").returncode != 0:
+        log.info("git 원격(origin) 없음 — 자동 푸시 건너뜀")
+        return
+    run("add", "docs/index.html")
+    if run("diff", "--cached", "--quiet").returncode == 0:
+        log.info("docs 변경 없음 — 푸시 건너뜀")
+        return
+    run("commit", "-m", f"auto: 일일 기사 업데이트 {date_str}")
+    p = run("push")
+    if p.returncode == 0:
+        log.info("GitHub Pages 푸시 완료")
+    else:
+        log.error("git push 실패: %s", ((p.stderr or "") + (p.stdout or ""))[-300:])
+
+
 def main():
     key = config.ANTHROPIC_API_KEY
     if not key:
@@ -197,6 +221,13 @@ def main():
             deploy_static.deploy()
         except Exception as exc:  # noqa: BLE001
             log.exception("[STEP 7] 자동 배포 실패: %s", exc)
+
+    # 8. GitHub Pages 자동 갱신 (AUTO_GIT_PUSH=1)
+    if config.AUTO_GIT_PUSH and db.count() > 0:
+        try:
+            _git_publish(str(today))
+        except Exception as exc:  # noqa: BLE001
+            log.exception("[STEP 8] git 푸시 실패: %s", exc)
 
     log.info("=== 일일 빌드 종료: 이번 신규 %d건 / DB 총 %d건 ===", len(web), db.count())
 
