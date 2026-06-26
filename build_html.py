@@ -314,4 +314,8 @@ loadEng();
 </body></html>"""
 
 open("output/web_sample.html", "w", encoding="utf-8").write(HTML)
-print(f"SAVED | 피드 {len(published)}건(윤리 평균 {avg}), 보류 {len(rejected)}건, {len(HTML)} bytes")
+# GitHub Pages 게시용 사본 (docs/ 폴더를 Pages 소스로 사용)
+import os as _os
+_os.makedirs("docs", exist_ok=True)
+open("docs/index.html", "w", encoding="utf-8").write(HTML)
+print(f"SAVED | 피드 {len(published)}건(윤리 평균 {avg}), 보류 {len(rejected)}건, {len(HTML)} bytes → output + docs/index.html")
