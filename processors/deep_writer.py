@@ -143,8 +143,42 @@ def image_keywords(article: dict, api_key: str) -> list:
         return []
 
 
+POLISH_PROMPT = """다음 기사 본문을 한국어 신문 기사체로 자연스럽게 다듬어라.
+- 사실·정보·단락 구성은 그대로 유지 (내용 변경·추가·삭제 금지)
+- 어색한 번역투, 중복 표현, 비문, 부자연스러운 문장 연결을 매끄럽게 교정
+- 신문 기사다운 간결하고 명료한 문어체 (구어체·과장 금지)
+- 단락 구분(단락 사이 빈 줄)은 유지
+
+반드시 JSON으로만:
+{{"body": "다듬은 본문"}}
+
+[본문]
+{body}
+"""
+
+
+def polish_body(body: str, api_key: str) -> str:
+    """기사형 문장 교정 피드백 — 사실은 유지하고 문장만 신문 기사체로 다듬는다."""
+    if not api_key or not body:
+        return body
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        resp = client.messages.create(
+            model=config.MODEL_REVIEWER, max_tokens=3500,
+            messages=[{"role": "user", "content": POLISH_PROMPT.format(body=body[:5000])}],
+        )
+        polished = _extract_json(resp.content[0].text).get("body", "").strip()
+        return polished or body
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("문장 교정(polish) 실패: %s", exc)
+        return body
+
+
 def write_deep_article(seed: dict, related_items: list, api_key: str) -> dict:
-    """씨앗 기사 → 심층 기사 dict (article_title/article_body/article_summary 부착)."""
+    """씨앗 기사 → 심층 기사 dict (article_title/article_body/article_summary 부착).
+
+    2차 작성 후 기사형 문장 교정(polish)까지 적용한다.
+    """
     if not api_key:
         raise ValueError("ANTHROPIC_API_KEY가 필요합니다.")
     client = anthropic.Anthropic(api_key=api_key)
@@ -170,10 +204,14 @@ def write_deep_article(seed: dict, related_items: list, api_key: str) -> dict:
     )
     data = _extract_json(resp.content[0].text)
 
+    # 2차 작성 직후 기사형 문장 교정 피드백
+    polished_body = polish_body(data.get("body", ""), api_key)
+    logger.info("기사형 문장 교정 완료")
+
     deep = dict(seed)
     deep.update({
         "article_title": data.get("title", title),
-        "article_body": data.get("body", ""),
+        "article_body": polished_body,
         "article_summary": data.get("summary", ""),
         "deep_angles": [a.get("angle", "") for a in angles],
         "is_deep": True,

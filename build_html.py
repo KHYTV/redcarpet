@@ -149,9 +149,13 @@ HTML = f"""<!DOCTYPE html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RedCar Pet — 반려동물 뉴스피드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
   * {{ box-sizing:border-box; }}
-  body {{ font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif; margin:0; background:#f0f2f5; color:#1c1e21; }}
+  /* 중앙일보 참고: Noto Sans KR 폰트 스택 */
+  body {{ font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',Dotum,Arial,sans-serif; margin:0; background:#f0f2f5; color:#1c1e21; }}
   .topbar {{ position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid #dadde1; padding:12px 16px; display:flex; align-items:center; justify-content:center; gap:10px; }}
   .topbar .logo {{ font-size:22px; font-weight:700; color:#c0392b; }}
   .topbar .tag {{ font-size:13px; color:#65676b; }}
@@ -200,12 +204,13 @@ HTML = f"""<!DOCTYPE html>
   .mclose {{ float:right; cursor:pointer; font-size:22px; color:#999; border:none; background:none; }}
   .mtags {{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; font-size:13px; align-items:center; }}
   .mtags .t {{ padding:3px 10px; border-radius:14px; color:#fff; }}
-  .modal h2 {{ font-size:25px; line-height:1.35; margin:0 0 12px; }}
-  .mlead {{ color:#c0392b; font-size:16px; font-weight:600; margin:0 0 18px; line-height:1.6; }}
-  .mbody p {{ font-size:16px; line-height:1.85; color:#222; margin:0 0 16px; }}
-  .mbody img {{ width:100%; border-radius:10px; margin:6px 0 18px; display:block; }}
-  .angles {{ margin-top:18px; padding:14px 16px; background:#f0f2f5; border-radius:10px; font-size:13px; color:#444; line-height:1.7; }}
-  @media (max-width:480px) {{ .minner {{ padding:18px; }} .modal h2 {{ font-size:21px; }} }}
+  /* 중앙일보 기사 가독성: 제목 큼, 본문 18px·줄간격 1.9 */
+  .modal h2 {{ font-size:28px; font-weight:700; line-height:1.4; margin:0 0 14px; letter-spacing:-0.3px; }}
+  .mlead {{ color:#F6330A; font-size:18px; font-weight:500; margin:0 0 20px; line-height:1.7; }}
+  .mbody p {{ font-size:18px; line-height:1.9; color:#222; margin:0 0 20px; letter-spacing:-0.2px; }}
+  .mbody img {{ width:100%; border-radius:10px; margin:6px 0 20px; display:block; }}
+  .angles {{ margin-top:20px; padding:14px 16px; background:#f5f5f5; border-radius:10px; font-size:14px; color:#444; line-height:1.8; }}
+  @media (max-width:480px) {{ .minner {{ padding:18px; }} .modal h2 {{ font-size:23px; }} .mbody p {{ font-size:17px; }} }}
 </style></head>
 <body>
 <div class="topbar"><span class="logo">🐾 RedCar Pet</span><span class="tag">동물권 지향 뉴스피드 · 윤리 평균 {avg}점 · {len(published)}건</span></div>
