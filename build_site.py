@@ -26,7 +26,14 @@ from collectors import reddit_collector, rss_collector, filter as item_filter
 from processors import (article_writer, fact_checker, article_reviewer,
                         ethics_reviewer, grader, deep_writer)
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+os.makedirs(config.LOG_DIR, exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s",
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(os.path.join(config.LOG_DIR, "daily_build.log"), encoding="utf-8"),
+    ],
+)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("build_site")
 
