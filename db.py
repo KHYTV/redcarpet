@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS videos (
 );
 CREATE TABLE IF NOT EXISTS community (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT, title TEXT, text TEXT, is_ai INTEGER DEFAULT 0,
+  name TEXT, title TEXT, text TEXT, is_ai INTEGER DEFAULT 0, image_kw TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE TABLE IF NOT EXISTS personas (
@@ -79,6 +79,8 @@ def init_db():
         ccols = [r[1] for r in c.execute("PRAGMA table_info(community)").fetchall()]
         if ccols and "is_ai" not in ccols:
             c.execute("ALTER TABLE community ADD COLUMN is_ai INTEGER DEFAULT 0")
+        if ccols and "image_kw" not in ccols:
+            c.execute("ALTER TABLE community ADD COLUMN image_kw TEXT")
 
 
 # ---------- articles ----------
@@ -195,7 +197,7 @@ def get_videos():
     return [dict(r) for r in rows]
 
 
-def add_community_post(name, title, text, is_ai=0):
+def add_community_post(name, title, text, is_ai=0, image_kw=""):
     init_db()
     name = (name or "익명").strip()[:40] or "익명"
     title = (title or "").strip()[:120]
@@ -203,11 +205,11 @@ def add_community_post(name, title, text, is_ai=0):
     if not (title or text):
         return None
     with _conn() as c:
-        cur = c.execute("INSERT INTO community(name,title,text,is_ai) VALUES(?,?,?,?)",
-                        (name, title, text, 1 if is_ai else 0))
+        cur = c.execute("INSERT INTO community(name,title,text,is_ai,image_kw) VALUES(?,?,?,?,?)",
+                        (name, title, text, 1 if is_ai else 0, (image_kw or "").strip()[:80]))
         row = c.execute("SELECT * FROM community WHERE id=?", (cur.lastrowid,)).fetchone()
-    return {"key": f"c:{row['id']}", "name": row["name"], "title": row["title"],
-            "text": row["text"], "is_ai": bool(row["is_ai"]), "created_at": row["created_at"]}
+    return {"key": f"c:{row['id']}", "name": row["name"], "title": row["title"], "text": row["text"],
+            "is_ai": bool(row["is_ai"]), "image_kw": row["image_kw"] or "", "created_at": row["created_at"]}
 
 
 def get_community():
@@ -215,7 +217,8 @@ def get_community():
     with _conn() as c:
         rows = c.execute("SELECT * FROM community ORDER BY id DESC").fetchall()
     return [{"key": f"c:{r['id']}", "name": r["name"], "title": r["title"], "text": r["text"],
-             "is_ai": bool(r["is_ai"]), "created_at": r["created_at"]} for r in rows]
+             "is_ai": bool(r["is_ai"]), "image_kw": (r["image_kw"] if "image_kw" in r.keys() else "") or "",
+             "created_at": r["created_at"]} for r in rows]
 
 
 # ---------- persona (투명한 AI 페르소나) ----------

@@ -104,7 +104,12 @@ for v in VIDEOS:
 
 news_js = json.dumps(news_data, ensure_ascii=False)
 videos_js = json.dumps(videos_data, ensure_ascii=False)
-comm_js = json.dumps(db.get_community(), ensure_ascii=False)  # 정적 페이지에도 보이도록 시드 임베드
+# 커뮤니티 시드 임베드(정적에도 노출) + 이미지 키워드가 있으면 base64로 첨부
+comm_data = db.get_community()
+for j, cp in enumerate(comm_data):
+    kw = (cp.get("image_kw") or "").strip()
+    cp["img"] = fetch_img(kw.replace(" ", ","), 5000 + j, w=600, h=400) if kw else ""
+comm_js = json.dumps(comm_data, ensure_ascii=False)
 avg = round(sum(a.get("ethics_score") or 0 for a in ART) / max(len(ART), 1))
 
 HTML = f"""<!DOCTYPE html>
@@ -232,6 +237,7 @@ function curList(){{
   else list.sort((a,b)=>metric(b)-metric(a));
   return list;
 }}
+function commImg(x){{ return x.img ? x.img : (x.image_kw ? 'https://loremflickr.com/600/400/'+encodeURIComponent((x.image_kw||'').replace(/ /g,',')) : ''); }}
 function commCard(x){{
   const e=eng(x.key);
   const initial = (x.name||'익')[0];
@@ -242,6 +248,7 @@ function commCard(x){{
     '<div class="pmeta">'+esc((x.created_at||'').slice(0,16))+'</div></div></div>'+
     (x.title?'<h2 class="ptitle">'+esc(x.title)+'</h2>':'')+
     '<div class="ptext">'+esc((x.text||'').slice(0,200))+((x.text||'').length>200?'…':'')+'</div>'+
+    (commImg(x)?'<div class="pimg"><img src="'+commImg(x)+'" alt=""></div>':'')+
     '<div class="pactions"><button class="likebtn" onclick="event.stopPropagation();like(\\''+x.key+'\\')">♥ 좋아요 <b class="lc" data-k="'+x.key+'">'+e.likes+'</b></button>'+
     '<span>💬 <b class="cc" data-k="'+x.key+'">'+e.comments.length+'</b></span>'+
     '<span>👁 <b class="vc" data-k="'+x.key+'">'+e.views+'</b></span>'+
@@ -265,7 +272,7 @@ function openComm(key){{ const x=COMM.find(c=>c.key===key); if(!x)return; curKey
   document.getElementById('m-band').style.background='#8B5BEE';
   document.getElementById('m-title').textContent=x.title||'(제목 없음)';
   document.getElementById('m-lead').textContent='';
-  document.getElementById('m-body').innerHTML='<p style="white-space:pre-wrap">'+esc(x.text||'')+'</p>';
+  document.getElementById('m-body').innerHTML=(commImg(x)?'<img src="'+commImg(x)+'" alt="">':'')+'<p style="white-space:pre-wrap">'+esc(x.text||'')+'</p>';
   document.getElementById('m-tags').innerHTML='<span class="t" style="background:#8B5BEE">커뮤니티</span>'+(x.is_ai?'<span class="t" style="background:#8B5BEE">🤖 AI</span>':'')+'<span style="color:#999">'+esc(x.name||'익명')+' · '+esc((x.created_at||'').slice(0,16))+'</span>';
   document.getElementById('m-angles').innerHTML='';
   document.getElementById('m-lc').textContent=eng(key).likes; renderComments(key);
