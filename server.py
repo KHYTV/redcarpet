@@ -55,6 +55,8 @@ class Handler(BaseHTTPRequestHandler):
         key = (body.get("key") or "").strip()
         if not key:
             return self._send(400, {"error": "key required"})
+        if self.path == "/api/view":
+            return self._send(200, {"views": db.add_view(key)})
         if self.path == "/api/like":
             return self._send(200, {"likes": db.add_like(key)})
         if self.path == "/api/comment":

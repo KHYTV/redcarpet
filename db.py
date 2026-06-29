@@ -34,6 +34,15 @@ CREATE TABLE IF NOT EXISTS comments (
   article_key TEXT, name TEXT, text TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS views (
+  article_key TEXT PRIMARY KEY,
+  count INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS videos (
+  source_key TEXT PRIMARY KEY,
+  title TEXT, url TEXT, category TEXT, pub_date TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 
@@ -143,15 +152,45 @@ def add_comment(article_key, name, text):
     return {"name": name, "text": text}
 
 
+def add_view(article_key):
+    init_db()
+    with _conn() as c:
+        c.execute("INSERT INTO views(article_key,count) VALUES(?,1) "
+                  "ON CONFLICT(article_key) DO UPDATE SET count=count+1", (article_key,))
+        return c.execute("SELECT count FROM views WHERE article_key=?", (article_key,)).fetchone()[0]
+
+
+def add_video(source_key, title, url, category="general", pub_date=""):
+    init_db()
+    with _conn() as c:
+        c.execute("INSERT INTO videos(source_key,title,url,category,pub_date) VALUES(?,?,?,?,?) "
+                  "ON CONFLICT(source_key) DO UPDATE SET title=excluded.title, url=excluded.url, "
+                  "category=excluded.category, pub_date=excluded.pub_date",
+                  (source_key, title, url, category, pub_date))
+
+
+def get_videos():
+    init_db()
+    with _conn() as c:
+        rows = c.execute("SELECT * FROM videos ORDER BY pub_date DESC, created_at DESC").fetchall()
+    return [dict(r) for r in rows]
+
+
+def _empty():
+    return {"likes": 0, "comments": [], "views": 0}
+
+
 def get_engagement():
-    """{source_key: {likes:int, comments:[{name,text,created_at}]}} 전체 반환."""
+    """{source_key: {likes, comments[], views}} 전체 반환."""
     init_db()
     eng = {}
     with _conn() as c:
         for r in c.execute("SELECT article_key,count FROM likes").fetchall():
-            eng.setdefault(r["article_key"], {"likes": 0, "comments": []})["likes"] = r["count"]
+            eng.setdefault(r["article_key"], _empty())["likes"] = r["count"]
+        for r in c.execute("SELECT article_key,count FROM views").fetchall():
+            eng.setdefault(r["article_key"], _empty())["views"] = r["count"]
         for r in c.execute("SELECT article_key,name,text,created_at FROM comments ORDER BY id ASC").fetchall():
-            eng.setdefault(r["article_key"], {"likes": 0, "comments": []})["comments"].append(
+            eng.setdefault(r["article_key"], _empty())["comments"].append(
                 {"name": r["name"], "text": r["text"], "created_at": r["created_at"]})
     return eng
 
