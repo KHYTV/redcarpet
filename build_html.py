@@ -104,6 +104,7 @@ for v in VIDEOS:
 
 news_js = json.dumps(news_data, ensure_ascii=False)
 videos_js = json.dumps(videos_data, ensure_ascii=False)
+comm_js = json.dumps(db.get_community(), ensure_ascii=False)  # 정적 페이지에도 보이도록 시드 임베드
 avg = round(sum(a.get("ethics_score") or 0 for a in ART) / max(len(ART), 1))
 
 HTML = f"""<!DOCTYPE html>
@@ -129,6 +130,7 @@ HTML = f"""<!DOCTYPE html>
   .phead {{ display:flex; align-items:center; gap:10px; }}
   .avatar {{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; flex:0 0 auto; }}
   .pinfo {{ flex:1; min-width:0; }} .pname {{ font-weight:600; font-size:15px; }} .pmeta {{ font-size:12px; color:#65676b; }}
+  .aibadge {{ display:inline-block; background:#8B5BEE; color:#fff; font-size:11px; font-weight:600; padding:1px 7px; border-radius:10px; margin-left:6px; vertical-align:middle; }}
   .epill {{ flex:0 0 auto; color:#fff; font-size:12px; padding:4px 9px; border-radius:14px; font-weight:500; }}
   .ptitle {{ font-size:19px; font-weight:700; line-height:1.4; margin:12px 0 6px; letter-spacing:-0.3px; }}
   .plead {{ font-size:15px; color:#1c1e21; line-height:1.6; margin:0 0 12px; }}
@@ -216,7 +218,7 @@ HTML = f"""<!DOCTYPE html>
 </div>
 <script>
 const NEWS = {news_js}, VIDEOS = {videos_js};
-let COMM = [];
+let COMM = {comm_js};
 let ENG = {{}}, tab = 'news', q = '', sortKey = 'date', curKey = null, curType = 'news';
 const ov = document.getElementById('overlay');
 function esc(s){{return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}}
@@ -233,9 +235,10 @@ function curList(){{
 function commCard(x){{
   const e=eng(x.key);
   const initial = (x.name||'익')[0];
+  const badge = x.is_ai ? '<span class="aibadge">🤖 AI</span>' : '';
   return '<article class="post" onclick="openComm(\\''+x.key+'\\')">'+
     '<div class="phead"><div class="avatar" style="background:#8B5BEE">'+esc(initial)+'</div>'+
-    '<div class="pinfo"><div class="pname">'+esc(x.name||'익명')+'</div>'+
+    '<div class="pinfo"><div class="pname">'+esc(x.name||'익명')+badge+'</div>'+
     '<div class="pmeta">'+esc((x.created_at||'').slice(0,16))+'</div></div></div>'+
     (x.title?'<h2 class="ptitle">'+esc(x.title)+'</h2>':'')+
     '<div class="ptext">'+esc((x.text||'').slice(0,200))+((x.text||'').length>200?'…':'')+'</div>'+
@@ -263,7 +266,7 @@ function openComm(key){{ const x=COMM.find(c=>c.key===key); if(!x)return; curKey
   document.getElementById('m-title').textContent=x.title||'(제목 없음)';
   document.getElementById('m-lead').textContent='';
   document.getElementById('m-body').innerHTML='<p style="white-space:pre-wrap">'+esc(x.text||'')+'</p>';
-  document.getElementById('m-tags').innerHTML='<span class="t" style="background:#8B5BEE">커뮤니티</span><span style="color:#999">'+esc(x.name||'익명')+' · '+esc((x.created_at||'').slice(0,16))+'</span>';
+  document.getElementById('m-tags').innerHTML='<span class="t" style="background:#8B5BEE">커뮤니티</span>'+(x.is_ai?'<span class="t" style="background:#8B5BEE">🤖 AI</span>':'')+'<span style="color:#999">'+esc(x.name||'익명')+' · '+esc((x.created_at||'').slice(0,16))+'</span>';
   document.getElementById('m-angles').innerHTML='';
   document.getElementById('m-lc').textContent=eng(key).likes; renderComments(key);
   ov.classList.add('open'); document.body.style.overflow='hidden'; }}
@@ -348,7 +351,7 @@ document.getElementById('m-send').onclick=sendComment;
 document.addEventListener('keydown',e=>{{ if(e.key==='Escape')closeM(); }});
 async function loadEng(){{
   try{{ ENG=await(await fetch('/api/engagement')).json()||{{}}; }}catch(e){{ ENG={{}}; }}
-  try{{ const c=await(await fetch('/api/community')).json(); COMM=(c&&c.posts)||[]; }}catch(e){{ COMM=[]; }}
+  try{{ const c=await(await fetch('/api/community')).json(); if(c&&c.posts&&c.posts.length) COMM=c.posts; }}catch(e){{}}
   render();
 }}
 loadEng();

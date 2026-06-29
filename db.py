@@ -45,7 +45,18 @@ CREATE TABLE IF NOT EXISTS videos (
 );
 CREATE TABLE IF NOT EXISTS community (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT, title TEXT, text TEXT,
+  name TEXT, title TEXT, text TEXT, is_ai INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS personas (
+  id TEXT PRIMARY KEY,
+  name TEXT, species TEXT, breed TEXT, birth TEXT,
+  personality TEXT, tone TEXT, interests TEXT, backstory TEXT, summary TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS persona_memory (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  persona_id TEXT, kind TEXT, content TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
 """
@@ -65,6 +76,9 @@ def init_db():
         cols = [r[1] for r in c.execute("PRAGMA table_info(articles)").fetchall()]
         if "image_keywords" not in cols:
             c.execute("ALTER TABLE articles ADD COLUMN image_keywords TEXT")
+        ccols = [r[1] for r in c.execute("PRAGMA table_info(community)").fetchall()]
+        if ccols and "is_ai" not in ccols:
+            c.execute("ALTER TABLE community ADD COLUMN is_ai INTEGER DEFAULT 0")
 
 
 # ---------- articles ----------
@@ -181,7 +195,7 @@ def get_videos():
     return [dict(r) for r in rows]
 
 
-def add_community_post(name, title, text):
+def add_community_post(name, title, text, is_ai=0):
     init_db()
     name = (name or "익명").strip()[:40] or "익명"
     title = (title or "").strip()[:120]
@@ -189,19 +203,58 @@ def add_community_post(name, title, text):
     if not (title or text):
         return None
     with _conn() as c:
-        cur = c.execute("INSERT INTO community(name,title,text) VALUES(?,?,?)", (name, title, text))
-        pid = cur.lastrowid
-        row = c.execute("SELECT * FROM community WHERE id=?", (pid,)).fetchone()
+        cur = c.execute("INSERT INTO community(name,title,text,is_ai) VALUES(?,?,?,?)",
+                        (name, title, text, 1 if is_ai else 0))
+        row = c.execute("SELECT * FROM community WHERE id=?", (cur.lastrowid,)).fetchone()
     return {"key": f"c:{row['id']}", "name": row["name"], "title": row["title"],
-            "text": row["text"], "created_at": row["created_at"]}
+            "text": row["text"], "is_ai": bool(row["is_ai"]), "created_at": row["created_at"]}
 
 
 def get_community():
     init_db()
     with _conn() as c:
         rows = c.execute("SELECT * FROM community ORDER BY id DESC").fetchall()
-    return [{"key": f"c:{r['id']}", "name": r["name"], "title": r["title"],
-             "text": r["text"], "created_at": r["created_at"]} for r in rows]
+    return [{"key": f"c:{r['id']}", "name": r["name"], "title": r["title"], "text": r["text"],
+             "is_ai": bool(r["is_ai"]), "created_at": r["created_at"]} for r in rows]
+
+
+# ---------- persona (투명한 AI 페르소나) ----------
+def upsert_persona(p):
+    init_db()
+    with _conn() as c:
+        c.execute("""INSERT INTO personas(id,name,species,breed,birth,personality,tone,interests,backstory,summary)
+            VALUES(:id,:name,:species,:breed,:birth,:personality,:tone,:interests,:backstory,:summary)
+            ON CONFLICT(id) DO UPDATE SET name=excluded.name,species=excluded.species,breed=excluded.breed,
+              birth=excluded.birth,personality=excluded.personality,tone=excluded.tone,
+              interests=excluded.interests,backstory=excluded.backstory""",
+            {"summary": "", **p})
+
+
+def get_persona(pid):
+    init_db()
+    with _conn() as c:
+        r = c.execute("SELECT * FROM personas WHERE id=?", (pid,)).fetchone()
+    return dict(r) if r else None
+
+
+def set_persona_summary(pid, summary):
+    init_db()
+    with _conn() as c:
+        c.execute("UPDATE personas SET summary=? WHERE id=?", (summary, pid))
+
+
+def add_persona_memory(pid, kind, content):
+    init_db()
+    with _conn() as c:
+        c.execute("INSERT INTO persona_memory(persona_id,kind,content) VALUES(?,?,?)", (pid, kind, content))
+
+
+def get_persona_memory(pid, limit=12):
+    init_db()
+    with _conn() as c:
+        rows = c.execute("SELECT kind,content,created_at FROM persona_memory WHERE persona_id=? "
+                         "ORDER BY id DESC LIMIT ?", (pid, limit)).fetchall()
+    return [dict(r) for r in reversed(rows)]  # 오래된→최신
 
 
 def _empty():
