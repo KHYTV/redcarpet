@@ -25,6 +25,31 @@ import db
 from collectors import reddit_collector, rss_collector, filter as item_filter
 from processors import (article_writer, fact_checker, article_reviewer,
                         ethics_reviewer, grader, deep_writer)
+from processors.ethics_guidelines import ANIMAL_TYPES
+
+_KEY_Q = {t["id"]: t["key_q"] for t in ANIMAL_TYPES}
+
+
+def _salvage_ethics(deep, key):
+    """윤리 미달 시 비판 기사로 자동 재작성 후 재채점. 통과하면 살린다."""
+    if deep.get("ethics_passed"):
+        return deep
+    atype = deep.get("ethics_type", "companion")
+    rw = deep_writer.critical_rewrite(
+        {"article_title": deep.get("article_title", ""), "article_body": deep.get("article_body", "")},
+        atype, _KEY_Q.get(atype, ""), deep.get("ethics_violations", []), key)
+    if not rw.get("body"):
+        return deep
+    new_body = deep_writer.polish_body(rw["body"], key)
+    deep["article_title"] = rw.get("title", deep["article_title"])
+    deep["article_body"] = new_body
+    deep["article_summary"] = rw.get("summary", deep.get("article_summary", ""))
+    deep = ethics_reviewer.ethics_review(deep, key)  # 재채점
+    deep = article_reviewer.review_article(deep, key)  # 점수 재산출
+    log.info("윤리 미달 → 비판 재작성: %s → %s점 (%s)",
+             deep["article_title"][:26], deep.get("ethics_score"),
+             "통과" if deep.get("ethics_passed") else "여전히 미달")
+    return deep
 
 os.makedirs(config.LOG_DIR, exist_ok=True)
 logging.basicConfig(
@@ -190,6 +215,12 @@ def main():
         deep = fact_checker.fact_check(deep, key)
         deep = article_reviewer.review_article(deep, key)
         deep = ethics_reviewer.ethics_review(deep, key)
+        # 윤리 미달이면 비판 기사로 자동 재작성 후 재채점 (살리기 시도)
+        if not deep.get("ethics_passed"):
+            deep = _salvage_ethics(deep, key)
+        if not deep.get("ethics_passed"):
+            log.info("비판 재작성 후에도 미달 → 제외: %s", deep.get("article_title", "")[:28])
+            continue
         deep = grader.grade_article(deep)
         entry = {
             "source_key": seed["source_key"],
