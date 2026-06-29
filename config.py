@@ -40,10 +40,18 @@ SUBREDDITS = ["dogs", "cats", "pets", "AskVet", "dogtraining", "puppy101", "CatA
 
 # ===== 해외 RSS =====
 OVERSEAS_RSS = [
+    # 기존 펫 뉴스/매체
     "https://www.dogingtonpost.com/feed",
     "https://www.goodnewsforpets.com/feed",
     "https://www.whole-dog-journal.com/feed",
     "https://www.vet.cornell.edu/departments-centers-and-institutes/cornell-wildlife-health-lab/feed",
+    # 추가: 미국 펫 뉴스/매체
+    "https://www.catster.com/feed/",                 # Catster (고양이)
+    "https://www.petage.com/feed/",                  # Pet Age (펫 산업 뉴스)
+    "https://www.akc.org/expert-advice/feed/",       # AKC 미국켄넬클럽 전문가 조언
+    # 추가: 동물 단체·기관
+    "https://www.aspca.org/rss.xml",                 # ASPCA (동물학대방지협회)
+    "https://www.morrisanimalfoundation.org/rss.xml",  # Morris Animal Foundation (동물건강 연구재단)
 ]
 
 # ===== 국내 구글뉴스 RSS (URL 인코딩된 한글 검색어) =====
@@ -82,8 +90,8 @@ NEWSLETTER_RECIPIENTS = [
 # ===== 자동 배포 (정적 호스팅) =====
 # DEPLOY_TARGET: netlify | cloudflare | "" (빈값이면 자동배포 안 함)
 DEPLOY_TARGET = os.environ.get("DEPLOY_TARGET", "").lower()
-# AUTO_GIT_PUSH=1 이면 일일 빌드가 docs/index.html을 커밋·푸시해 GitHub Pages 갱신
-AUTO_GIT_PUSH = os.environ.get("AUTO_GIT_PUSH", "").lower() in ("1", "true", "yes")
+# 일일 빌드가 docs/index.html을 커밋·푸시해 GitHub Pages 갱신 (기본 ON, AUTO_GIT_PUSH=0으로 끔)
+AUTO_GIT_PUSH = os.environ.get("AUTO_GIT_PUSH", "true").lower() in ("1", "true", "yes")
 NETLIFY_AUTH_TOKEN = os.environ.get("NETLIFY_AUTH_TOKEN", "")
 NETLIFY_SITE_ID = os.environ.get("NETLIFY_SITE_ID", "")
 CLOUDFLARE_API_TOKEN = os.environ.get("CLOUDFLARE_API_TOKEN", "")
