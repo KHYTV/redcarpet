@@ -38,6 +38,8 @@ class Handler(BaseHTTPRequestHandler):
             path = "/web_sample.html"
         if path == "/api/engagement":
             return self._send(200, db.get_engagement())
+        if path == "/api/community":
+            return self._send(200, {"posts": db.get_community()})
         if path in ALLOWED:
             fp = os.path.join(config.OUTPUT_DIR, path.lstrip("/"))
             if os.path.isfile(fp):
@@ -52,6 +54,9 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length) or b"{}")
         except Exception:
             return self._send(400, {"error": "bad json"})
+        if self.path == "/api/post":  # 커뮤니티 글쓰기 (key 불필요)
+            p = db.add_community_post(body.get("name"), body.get("title"), body.get("text"))
+            return self._send(200, {"post": p} if p else {"error": "empty"})
         key = (body.get("key") or "").strip()
         if not key:
             return self._send(400, {"error": "key required"})

@@ -164,6 +164,11 @@ HTML = f"""<!DOCTYPE html>
   .cform textarea {{ min-height:60px; resize:vertical; }}
   .cform button {{ align-self:flex-end; background:#c0392b; color:#fff; border:none; border-radius:8px; padding:8px 18px; font:inherit; font-weight:600; cursor:pointer; }}
   .empty {{ text-align:center; color:#999; padding:40px 0; }}
+  .writebox {{ background:#fff; border-radius:12px; box-shadow:0 1px 2px rgba(0,0,0,.1); padding:14px 16px; display:flex; flex-direction:column; gap:8px; }}
+  .writebox input, .writebox textarea {{ font:inherit; border:1px solid #dadde1; border-radius:8px; padding:9px 11px; width:100%; }}
+  .writebox textarea {{ min-height:70px; resize:vertical; }}
+  .writebox .wbtn {{ align-self:flex-end; background:#c0392b; color:#fff; border:none; border-radius:8px; padding:8px 20px; font:inherit; font-weight:600; cursor:pointer; }}
+  .ptext {{ font-size:15px; color:#1c1e21; line-height:1.7; margin:8px 0 12px; white-space:pre-wrap; }}
   @media (max-width:480px) {{ .minner {{ padding:18px; }} .modal h2 {{ font-size:23px; }} .mbody p {{ font-size:17px; }} }}
 </style></head>
 <body>
@@ -181,6 +186,7 @@ HTML = f"""<!DOCTYPE html>
   <div class="tabs">
     <button class="tab on" id="tab-news" onclick="setTab('news')">뉴스</button>
     <button class="tab" id="tab-video" onclick="setTab('video')">동영상</button>
+    <button class="tab" id="tab-comm" onclick="setTab('comm')">커뮤니티</button>
   </div>
 </div>
 <div class="feed" id="feed"></div>
@@ -210,6 +216,7 @@ HTML = f"""<!DOCTYPE html>
 </div>
 <script>
 const NEWS = {news_js}, VIDEOS = {videos_js};
+let COMM = [];
 let ENG = {{}}, tab = 'news', q = '', sortKey = 'date', curKey = null, curType = 'news';
 const ov = document.getElementById('overlay');
 function esc(s){{return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}}
@@ -217,12 +224,49 @@ function eng(k){{ return ENG[k] || (ENG[k]={{likes:0,comments:[],views:0}}); }}
 function metric(x){{ const e=eng(x.key); return sortKey==='views'?e.views:sortKey==='likes'?e.likes:sortKey==='comments'?e.comments.length:0; }}
 
 function curList(){{
-  let list = (tab==='news'?NEWS:VIDEOS).slice();
-  if(q) list = list.filter(x => ((x.title||'')+' '+(x.lead||'')).toLowerCase().includes(q));
-  if(sortKey==='date') list.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let list = (tab==='news'?NEWS:tab==='video'?VIDEOS:COMM).slice();
+  if(q) list = list.filter(x => ((x.title||'')+' '+(x.lead||'')+' '+(x.text||'')).toLowerCase().includes(q));
+  if(sortKey==='date') list.sort((a,b)=>((b.date||b.created_at||'')).localeCompare(a.date||a.created_at||''));
   else list.sort((a,b)=>metric(b)-metric(a));
   return list;
 }}
+function commCard(x){{
+  const e=eng(x.key);
+  const initial = (x.name||'익')[0];
+  return '<article class="post" onclick="openComm(\\''+x.key+'\\')">'+
+    '<div class="phead"><div class="avatar" style="background:#8B5BEE">'+esc(initial)+'</div>'+
+    '<div class="pinfo"><div class="pname">'+esc(x.name||'익명')+'</div>'+
+    '<div class="pmeta">'+esc((x.created_at||'').slice(0,16))+'</div></div></div>'+
+    (x.title?'<h2 class="ptitle">'+esc(x.title)+'</h2>':'')+
+    '<div class="ptext">'+esc((x.text||'').slice(0,200))+((x.text||'').length>200?'…':'')+'</div>'+
+    '<div class="pactions"><button class="likebtn" onclick="event.stopPropagation();like(\\''+x.key+'\\')">♥ 좋아요 <b class="lc" data-k="'+x.key+'">'+e.likes+'</b></button>'+
+    '<span>💬 <b class="cc" data-k="'+x.key+'">'+e.comments.length+'</b></span>'+
+    '<span>👁 <b class="vc" data-k="'+x.key+'">'+e.views+'</b></span>'+
+    '<span class="readmore">자세히 →</span></div></article>';
+}}
+function writeBox(){{
+  return '<div class="writebox"><input id="w-name" placeholder="이름(선택)" maxlength="40">'+
+    '<input id="w-title" placeholder="제목" maxlength="120">'+
+    '<textarea id="w-text" placeholder="반려동물 이야기를 공유해보세요" maxlength="2000"></textarea>'+
+    '<button class="wbtn" onclick="submitPost()">글 등록</button></div>';
+}}
+async function submitPost(){{
+  const name=document.getElementById('w-name').value, title=document.getElementById('w-title').value.trim(), text=document.getElementById('w-text').value.trim();
+  if(!title && !text){{ return; }}
+  try{{
+    const r=await(await fetch('/api/post',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{name,title,text}})}})).json();
+    if(r.post){{ COMM.unshift(r.post); render(); return; }}
+  }}catch(e){{ COMM.unshift({{key:'local:'+Date.now(),name:name||'익명',title,text,created_at:''}}); render(); return; }}
+}}
+function openComm(key){{ const x=COMM.find(c=>c.key===key); if(!x)return; curKey=key; curType='comm'; track(key);
+  document.getElementById('m-band').style.background='#8B5BEE';
+  document.getElementById('m-title').textContent=x.title||'(제목 없음)';
+  document.getElementById('m-lead').textContent='';
+  document.getElementById('m-body').innerHTML='<p style="white-space:pre-wrap">'+esc(x.text||'')+'</p>';
+  document.getElementById('m-tags').innerHTML='<span class="t" style="background:#8B5BEE">커뮤니티</span><span style="color:#999">'+esc(x.name||'익명')+' · '+esc((x.created_at||'').slice(0,16))+'</span>';
+  document.getElementById('m-angles').innerHTML='';
+  document.getElementById('m-lc').textContent=eng(key).likes; renderComments(key);
+  ov.classList.add('open'); document.body.style.overflow='hidden'; }}
 function newsCard(x){{
   const e=eng(x.key);
   const hero = x.hero ? '<img src="'+x.hero+'" alt="">' : '';
@@ -255,11 +299,15 @@ function videoCard(x){{
 function render(){{
   const list = curList();
   const feed = document.getElementById('feed');
-  if(!list.length){{ feed.innerHTML='<div class="empty">'+(tab==='video'?'아직 동영상이 없습니다.':'검색 결과가 없습니다.')+'</div>'; return; }}
-  feed.innerHTML = list.map(x => tab==='news'?newsCard(x):videoCard(x)).join('');
+  const card = tab==='news'?newsCard:tab==='video'?videoCard:commCard;
+  const head = (tab==='comm') ? writeBox() : '';
+  const body = list.length ? list.map(card).join('')
+    : '<div class="empty">'+(tab==='video'?'아직 동영상이 없습니다.':tab==='comm'?'첫 글을 남겨보세요.':'검색 결과가 없습니다.')+'</div>';
+  feed.innerHTML = head + body;
 }}
-function setTab(t){{ tab=t; document.getElementById('tab-news').classList.toggle('on',t==='news');
-  document.getElementById('tab-video').classList.toggle('on',t==='video'); render(); }}
+function setTab(t){{ tab=t;
+  for(const id of ['news','video','comm']) document.getElementById('tab-'+id).classList.toggle('on', t===id);
+  render(); }}
 function onSearch(v){{ q=(v||'').toLowerCase().trim(); render(); }}
 function onSort(v){{ sortKey=v; render(); }}
 
@@ -298,7 +346,11 @@ function closeM(){{ ov.classList.remove('open'); document.body.style.overflow=''
 document.getElementById('m-like').onclick=()=>{{ if(curKey)like(curKey); }};
 document.getElementById('m-send').onclick=sendComment;
 document.addEventListener('keydown',e=>{{ if(e.key==='Escape')closeM(); }});
-async function loadEng(){{ try{{ ENG=await(await fetch('/api/engagement')).json()||{{}}; }}catch(e){{ ENG={{}}; }} render(); }}
+async function loadEng(){{
+  try{{ ENG=await(await fetch('/api/engagement')).json()||{{}}; }}catch(e){{ ENG={{}}; }}
+  try{{ const c=await(await fetch('/api/community')).json(); COMM=(c&&c.posts)||[]; }}catch(e){{ COMM=[]; }}
+  render();
+}}
 loadEng();
 </script>
 </body></html>"""

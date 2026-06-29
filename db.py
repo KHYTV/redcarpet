@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS videos (
   title TEXT, url TEXT, category TEXT, pub_date TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS community (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT, title TEXT, text TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
 """
 
 
@@ -174,6 +179,29 @@ def get_videos():
     with _conn() as c:
         rows = c.execute("SELECT * FROM videos ORDER BY pub_date DESC, created_at DESC").fetchall()
     return [dict(r) for r in rows]
+
+
+def add_community_post(name, title, text):
+    init_db()
+    name = (name or "익명").strip()[:40] or "익명"
+    title = (title or "").strip()[:120]
+    text = (text or "").strip()[:2000]
+    if not (title or text):
+        return None
+    with _conn() as c:
+        cur = c.execute("INSERT INTO community(name,title,text) VALUES(?,?,?)", (name, title, text))
+        pid = cur.lastrowid
+        row = c.execute("SELECT * FROM community WHERE id=?", (pid,)).fetchone()
+    return {"key": f"c:{row['id']}", "name": row["name"], "title": row["title"],
+            "text": row["text"], "created_at": row["created_at"]}
+
+
+def get_community():
+    init_db()
+    with _conn() as c:
+        rows = c.execute("SELECT * FROM community ORDER BY id DESC").fetchall()
+    return [{"key": f"c:{r['id']}", "name": r["name"], "title": r["title"],
+             "text": r["text"], "created_at": r["created_at"]} for r in rows]
 
 
 def _empty():
