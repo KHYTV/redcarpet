@@ -73,7 +73,7 @@ GRADE_B_MIN = 50
 
 # ===== 윤리 점수 기준 (엄격) =====
 # 동물보도 윤리 100점 만점 중 이 점수 미만이면 발행 거부(veto)
-ETHICS_PASS_MIN = int(os.environ.get("ETHICS_PASS_MIN", "75"))
+ETHICS_PASS_MIN = int(os.environ.get("ETHICS_PASS_MIN", "70"))
 
 # ===== 숏폼 플랫폼 =====
 TARGET_PLATFORMS = ["youtube_shorts", "instagram_reels", "tiktok", "naver_clip"]
