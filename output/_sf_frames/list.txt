@@ -1,17 +1,17 @@
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s00.png'
-duration 5
+duration 4
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s01.png'
 duration 5
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s02.png'
-duration 5
+duration 4
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s03.png'
 duration 4
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s04.png'
-duration 5
-file 'D:/alcohol studies/redcarpet/output/_sf_frames/s05.png'
-duration 5
-file 'D:/alcohol studies/redcarpet/output/_sf_frames/s06.png'
-duration 5
-file 'D:/alcohol studies/redcarpet/output/_sf_frames/s07.png'
 duration 4
+file 'D:/alcohol studies/redcarpet/output/_sf_frames/s05.png'
+duration 4
+file 'D:/alcohol studies/redcarpet/output/_sf_frames/s06.png'
+duration 4
+file 'D:/alcohol studies/redcarpet/output/_sf_frames/s07.png'
+duration 5
 file 'D:/alcohol studies/redcarpet/output/_sf_frames/s07.png'
