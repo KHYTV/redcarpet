@@ -22,6 +22,7 @@ import anthropic
 
 import config
 import db
+import persona
 from collectors import reddit_collector, rss_collector, filter as item_filter
 from processors import (article_writer, fact_checker, article_reviewer,
                         ethics_reviewer, grader, deep_writer)
@@ -244,6 +245,16 @@ def main():
     out = os.path.join(config.RESULTS_DIR, "_web_articles.json")
     json.dump(web, open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
     log.info("이번 빌드 심층 %d건 저장 → %s | DB 누적 %d건", len(web), out, db.count())
+
+    # 5.5 페르소나 자동 게시 (투명한 AI, is_ai=1로 데이터 자산 격리)
+    for pid in config.PERSONA_IDS:
+        try:
+            persona.seed_default()  # 정전 보장(멱등)
+            txt = persona.generate_post(pid, key)
+            if txt:
+                log.info("페르소나[%s] 게시: %s", pid, txt[:36])
+        except Exception as exc:  # noqa: BLE001
+            log.exception("페르소나[%s] 생성 실패: %s", pid, exc)
 
     # 6. HTML 재생성 (DB에 누적된 전체 기사로 — 오늘 신규 0건이어도 기존분 게재)
     if db.count() > 0:

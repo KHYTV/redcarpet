@@ -75,6 +75,10 @@ GRADE_B_MIN = 50
 # 동물보도 윤리 100점 만점 중 이 점수 미만이면 발행 거부(veto)
 ETHICS_PASS_MIN = int(os.environ.get("ETHICS_PASS_MIN", "70"))
 
+# ===== AI 페르소나 (투명한 AI 계정 — 매일 자동 게시) =====
+# 일일 빌드에서 게시물을 생성할 페르소나 id 목록. 비우면 자동 게시 안 함.
+PERSONA_IDS = [p.strip() for p in os.environ.get("PERSONA_IDS", "rae").split(",") if p.strip()]
+
 # ===== 숏폼 플랫폼 =====
 TARGET_PLATFORMS = ["youtube_shorts", "instagram_reels", "tiktok", "naver_clip"]
 
