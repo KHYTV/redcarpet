@@ -40,10 +40,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, db.get_engagement())
         if path == "/api/community":
             return self._send(200, {"posts": db.get_community()})
-        if path in ALLOWED:
-            fp = os.path.join(config.OUTPUT_DIR, path.lstrip("/"))
+        ext = path.rsplit(".", 1)[-1].lower()
+        if path in ALLOWED or ext in ("mp4", "jpg", "jpeg", "png"):
+            fp = os.path.join(config.OUTPUT_DIR, os.path.basename(path))  # basename: 경로 탈출 차단
             if os.path.isfile(fp):
-                ctype = "text/html; charset=utf-8" if fp.endswith(".html") else "image/png"
+                ctype = {"html": "text/html; charset=utf-8", "mp4": "video/mp4",
+                         "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}.get(ext, "application/octet-stream")
                 with open(fp, "rb") as f:
                     return self._send(200, f.read(), ctype)
         self._send(404, {"error": "not found"})

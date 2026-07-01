@@ -12,12 +12,15 @@ DB에서 기사(articles)와 동영상(videos)을 읽어 페이스북형 피드�
 import base64
 import html
 import json
+import os
 import re
 
 import requests
 
+import config
 import db
 
+OUTPUT_DIR = config.OUTPUT_DIR
 ART = [a for a in db.get_all() if a.get("ethics_passed", True)]
 VIDEOS = db.get_videos()
 
@@ -94,10 +97,17 @@ for i, a in enumerate(ART):
 videos_data = []
 for v in VIDEOS:
     cat = v.get("category", "general")
-    vid = _yt_id(v.get("url", ""))
+    url = v.get("url", "")
+    vid = _yt_id(url)
+    local = url.lower().endswith(".mp4")
+    thumb = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg" if vid else ""
+    if local:  # 로컬 mp4: 포스터(같은 이름 .jpg)를 base64로 임베드
+        poster = os.path.join(OUTPUT_DIR, os.path.splitext(os.path.basename(url))[0] + ".jpg")
+        if os.path.isfile(poster):
+            thumb = "data:image/jpeg;base64," + base64.b64encode(open(poster, "rb").read()).decode("ascii")
     videos_data.append({
-        "key": v.get("source_key", ""), "title": v.get("title", ""), "url": v.get("url", ""),
-        "vid": vid, "thumb": f"https://img.youtube.com/vi/{vid}/hqdefault.jpg" if vid else "",
+        "key": v.get("source_key", ""), "title": v.get("title", ""), "url": url,
+        "vid": vid, "local": local, "thumb": thumb,
         "label": CAT_LABEL.get(cat, "소식"), "color": CAT_COLOR.get(cat, "#5F5E5A"),
         "emoji": CAT_EMOJI.get(cat, "🐾"), "date": v.get("pub_date", ""),
     })
@@ -347,7 +357,7 @@ function openVideo(key){{ const x=VIDEOS.find(v=>v.key===key); if(!x)return; cur
   document.getElementById('m-band').style.background=x.color;
   document.getElementById('m-title').textContent=x.title;
   document.getElementById('m-lead').textContent='';
-  document.getElementById('m-body').innerHTML = x.vid?'<iframe src="https://www.youtube.com/embed/'+x.vid+'" allowfullscreen></iframe>':'<p><a href="'+x.url+'" target="_blank">영상 보기 →</a></p>';
+  document.getElementById('m-body').innerHTML = x.local?'<video controls playsinline preload="metadata" poster="'+(x.thumb||'')+'" src="'+x.url+'" style="width:100%;max-height:80vh;border-radius:10px;background:#000"></video>':x.vid?'<iframe src="https://www.youtube.com/embed/'+x.vid+'" allowfullscreen></iframe>':'<p><a href="'+x.url+'" target="_blank">영상 보기 →</a></p>';
   document.getElementById('m-tags').innerHTML='<span class="t" style="background:'+x.color+'">'+esc(x.emoji+' '+x.label)+'</span><span class="t" style="background:#1f1f1f">동영상</span><span style="color:#999">'+esc(x.date)+'</span>';
   document.getElementById('m-angles').innerHTML='';
   document.getElementById('m-lc').textContent=eng(key).likes; renderComments(key);
